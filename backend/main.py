@@ -1,6 +1,8 @@
 from fastapi import FastAPI, UploadFile, File, Form 
 from fastapi import HTTPException 
 import json
+import csv 
+import io
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
@@ -116,3 +118,47 @@ async def create_scenario(
         }
     except Exception as e:
         return {"error": str(e)}
+  
+@app.post("/upload-stations")
+async def upload_stations(file: UploadFile = File(...)):
+    try:
+        content = await file.read()
+        # Convierte bytes a texto y luego a una lista de diccionarios usando csv.DictReader
+        decoded = content.decode('utf-8')
+        reader = csv.DictReader(io.StringIO(decoded))
+        stations = list(reader)
+
+        if not stations: 
+            raise HTTPException(
+                status_code=400,
+                detail="El archivo de estaciones está vacío"
+            )
+        required_columns = {"STATION", "LATITUDE", "LONGITUDE", "ID"}
+        file_columns = set(stations[0].keys())
+
+        if not required_columns.issubset(file_columns):
+            raise HTTPException(
+                status_code=400,
+                detail=f"El archivo debe contener las columnas: {required_columns}"
+            )
+        
+        return {
+            "message": "Archivo de estaciones recibido correctamente",
+            "filename": file.filename,
+            "content_type": file.content_type,
+            "stations_count": len(stations),
+            "columns": list(file_columns),
+            "sample_station": stations[0]
+        }
+    except UnicodeDecodeError:
+        raise HTTPException(
+            status_code=400,
+            detail="No se pudo leer el archivo como texto UTF-8"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error procesando archivo de estaciones: {str(e)}"
+        )
+    
+

@@ -1,46 +1,72 @@
-import { useEffect, useState } from 'react'
+import { useState } from "react"
 
 function App() {
-  const [solutions, setSolutions] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+  const [rasterFile, setRasterFile] = useState(null)
+  const [stationsFile, setStationsFile] = useState(null)
+  const [nStations, setNStations] = useState(0)
+  const [response, setResponse] = useState(null)
 
-  useEffect(() => {
-    fetch('http://127.0.0.1:8000/solutions')
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error('Error al obtener las soluciones')
-        }
-        return response.json()
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+
+    const formData = new FormData()
+    formData.append("raster_file", rasterFile)
+    formData.append("stations_file", stationsFile)
+    formData.append("n_stations", nStations)
+
+    try {
+      const res = await fetch("http://localhost:8000/scenario", {
+        method: "POST",
+        body: formData
       })
-      .then((data) => {
-        setSolutions(data.solutions)
-        setLoading(false)
-      })
-      .catch((err) => {
-        setError(err.message)
-        setLoading(false)
-      })
-  }, [])
+
+      const data = await res.json()
+      setResponse(data)
+
+    } catch (error) {
+      console.error(error)
+    }
+  }
 
   return (
-    <div style={{ padding: '2rem', fontFamily: 'Arial' }}>
-      <h1>Soluciones de optimización GNSS</h1>
+    <div style={{ padding: "20px" }}>
+      <h1>GNSS Optimización</h1>
 
-      {loading && <p>Cargando soluciones...</p>}
-      {error && <p>Error: {error}</p>}
+      <form onSubmit={handleSubmit}>
 
-      {!loading && !error && (
-        <ul>
-          {solutions.map((solution) => (
-            <li key={solution.id}>
-              <strong>Solución {solution.id}</strong><br />
-              Objetivo 1: {solution.objective_1}<br />
-              Objetivo 2: {solution.objective_2}<br />
-              Número de estaciones: {solution.stations.length}
-            </li>
-          ))}
-        </ul>
+        <div>
+          <label>Raster (.geojson): </label>
+          <input
+            type="file"
+            onChange={(e) => setRasterFile(e.target.files[0])}
+          />
+        </div>
+
+        <div>
+          <label>Estaciones (.csv): </label>
+          <input
+            type="file"
+            onChange={(e) => setStationsFile(e.target.files[0])}
+          />
+        </div>
+
+        <div>
+          <label>Número de estaciones: </label>
+          <input
+            type="number"
+            value={nStations}
+            onChange={(e) => setNStations(e.target.value)}
+          />
+        </div>
+
+        <button type="submit">Enviar</button>
+      </form>
+
+      {response && (
+        <div style={{ marginTop: "20px" }}>
+          <h2>Respuesta:</h2>
+          <pre>{JSON.stringify(response, null, 2)}</pre>
+        </div>
       )}
     </div>
   )

@@ -124,11 +124,13 @@ async def upload_stations(file: UploadFile = File(...)):
     
 @app.post("/scenario") 
 async def create_escenario(
+    # Recibe ambos archivos y el numero de estaciones a generar
     raster_file: UploadFile = File(...),
     stations_file: UploadFile = File(...),
     n_stations: int = Form(...)
 ):   
     try: 
+        # Validar que el numero de nuevas estaciones sea mayor que 0
         if n_stations <= 0:
             raise HTTPException(
                 status_code=400,
@@ -136,28 +138,31 @@ async def create_escenario(
             )
         
         # ---------- Procesar raster ----------
+        # Lee el contenido del archivo raster, lo decodifica y lo convierte a JSON
         raster_content = await raster_file.read()
         raster_data = json.loads(raster_content)
-
+        
         raster_features = raster_data.get("features", [])
         raster_type = raster_data.get("type", "Desconocido")
         raster_has_crs = raster_data.get("crs") is not None
 
         # ---------- Procesar estaciones ----------
+        # Lee el contenido del archivo de estaciones, lo decodifica y lo convierte a una lista de diccionarios
         stations_content = await stations_file.read()
         stations_decoded = stations_content.decode("utf-8")
         stations_reader = csv.DictReader(io.StringIO(stations_decoded))
         stations = list(stations_reader)
 
+        # Valida que existan estaciones en el archivo
         if not stations:
             raise HTTPException(
                 status_code=400,
                 detail="El archivo de estaciones está vacío"
             )
-        
+        # Valida que archivo contenga datos de utilidad para el sistema
         required_columns = {"STATION", "LATITUDE", "LONGITUDE", "ID"}
         file_columns = set(stations[0].keys())
-
+        # Valida que el archivo contenga las columnas necesarias para el funcionamiento del sistema
         if not required_columns.issubset(file_columns):
             raise HTTPException(
                 status_code=400,
@@ -166,23 +171,24 @@ async def create_escenario(
         
         #---------- Respuesta estructurada----------
         return {
+            "status": "success",
             "message": "Escenario creado correctamente",
-            "input": {
+            "scenario": {
                 "raster_filename": raster_file.filename,
-                "n_stations_requested": n_stations,
-                "stations_filename": stations_file.filename
+                "stations_filename": stations_file.filename,
+                "n_stations": n_stations
             },
-            "raster_info": {
+            "raster": {
                 "geojson_type": raster_type,
                 "features_count": len(raster_features),
                 "has_crs": raster_has_crs
             },
-            "stations_info": {
-                "total_stations": len(stations),
+            "stations": {
+                "total": len(stations),
                 "columns": list(file_columns),
                 "sample_station": stations[0]
             },
-            "generated_solutions": [
+            "solutions": [
                 {
                     "id": 1,
                     "objective_1": 0.75,
@@ -191,7 +197,7 @@ async def create_escenario(
                 }
             ]
         }
-    
+    # Manejo de errores especificos para cada tipo de problema
     except json.JSONDecodeError:
         raise HTTPException(
             status_code=400,

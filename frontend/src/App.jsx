@@ -1,26 +1,28 @@
 import { useState } from "react"
 
 function App() {
+  // Estados para almacenar los archivos, número de estaciones y respuesta del backend
   const [rasterFile, setRasterFile] = useState(null)
   const [stationsFile, setStationsFile] = useState(null)
   const [nStations, setNStations] = useState(0)
   const [response, setResponse] = useState(null)
-
+  // Manejo del envío del formulario
   const handleSubmit = async (e) => {
     e.preventDefault()
-
+    // Validación de archivos y número de estaciones
     const formData = new FormData()
     formData.append("raster_file", rasterFile)
     formData.append("stations_file", stationsFile)
     formData.append("n_stations", nStations)
-
+    // Envío de datos al endpoint scenario del backend
     try {
       const res = await fetch("http://localhost:8000/scenario", {
         method: "POST",
         body: formData
       })
-
+      // interpreta respuesta como JSON convirtiendolo a objeto JavaScript
       const data = await res.json()
+      //guardando el objeto en response
       setResponse(data)
 
     } catch (error) {
@@ -61,11 +63,45 @@ function App() {
 
         <button type="submit">Enviar</button>
       </form>
-
+    
       {response && (
         <div style={{ marginTop: "20px" }}>
-          <h2>Respuesta:</h2>
-          <pre>{JSON.stringify(response, null, 2)}</pre>
+          <h2>Resultado del Escenario</h2>
+
+          {/* Resumen */}
+          <h3>Resumen</h3>
+          <p>Raster: {response.scenario.raster_filename}</p>
+          <p>Estaciones: {response.scenario.stations_filename}</p>
+          <p>N° de estaciones solicitadas: {response.scenario.n_stations}</p>
+
+          {/* Raster */}
+          <h3>Raster</h3>
+          <p>Tipo: {response.raster.geojson_type}</p>
+          <p>Features: {response.raster.features_count}</p>
+          <p>CRS: {response.raster.has_crs ? "Sí" : "No"}</p>
+
+          {/* Estaciones */}
+          <h3>Estaciones</h3>
+          <p>Total: {response.stations.total}</p>
+
+          <p>Columnas:</p>
+          <ul>
+            {response.stations.columns.map((col, index) =>(
+              <li key={index}>{col}</li>
+            ))}
+          </ul>
+
+          {/* Soluciones */}
+          <h3>Soluciones</h3>
+          {response.solutions.map((sol) => (
+            <div key={sol.id} style={{marginBottom: "10px" }}>
+              <p>ID: {sol.id}</p>
+              <p>Objetivo 1: {sol.objective_1}</p>
+              <p>Objetivo 2: {sol.objective_2}</p>
+              <p>Estaciones generadas: {sol.stations_generated}</p>
+              </div>
+          ))}
+
         </div>
       )}
     </div>

@@ -168,6 +168,20 @@ async def create_escenario(
                 status_code=400,
                 detail=f"El archivo de estaciones debe contener las columnas: {required_columns}"
             )
+        # Se crea lista para almacenar estaciones existentes con formato adecuado para el mapa
+        stations_for_map = []
+        for station in stations:
+            try:
+                # Se van agregando las estaciones a la lista
+                stations_for_map.append({
+                    "id": station["ID"],
+                    "station": station["STATION"],
+                    # Se convierten las coordenadas a float para que puedan ser usadas en el mapa
+                    "latitude": float(station["LATITUDE"]),
+                    "longitude": float(station["LONGITUDE"])
+                })
+            except (ValueError, KeyError):
+                continue
         
         #---------- Respuesta estructurada----------
         return {
@@ -186,7 +200,8 @@ async def create_escenario(
             "stations": {
                 "total": len(stations),
                 "columns": list(file_columns),
-                "sample_station": stations[0]
+                "sample_station": stations[0],
+                "items" : stations_for_map
             },
             "solutions": [
                 {

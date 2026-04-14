@@ -1,4 +1,7 @@
+
 import { useState } from "react"
+import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet"
+import "leaflet/dist/leaflet.css"
 
 function App() {
   // Estados para almacenar los archivos, número de estaciones y respuesta del backend
@@ -43,8 +46,9 @@ function App() {
             onChange={(e) => setRasterFile(e.target.files[0])}
           />
         </div>
-
+      
         <div>
+         
           <label>Estaciones (.csv): </label>
           <input
             type="file"
@@ -104,6 +108,39 @@ function App() {
 
         </div>
       )}
+      <h2>Mapa base</h2>
+      {/* Caja contenedora del mapa */}
+      <div style={{ height: "500px", marginTop: "20px" }}>
+        {/* Centro inicial del mapa, zoom inicial y cuanto ocupa de la caja */}
+        <MapContainer
+          center={[-30.0, -71.0]}
+          zoom={4}
+          style={{ height: "100%", width: "100%" }}
+        >
+          <TileLayer
+            attribution='&copy; OpenStreetMap contributors'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
+          {/* Recorro lista y por cada esatción se crea componente React */}
+          {response && response.stations.items.map((station, index) => (
+            <Marker
+              key={index}
+              position={[station.latitude, station.longitude]}
+            >
+              {/* Información de la estación */}
+              <Popup>
+                <div>
+                  <p><strong>Estación:</strong> {station.station}</p>
+                  <p><strong>ID:</strong> {station.id}</p>
+                  <p><strong>Latitud:</strong> {station.latitude}</p>
+                  <p><strong>Longitud:</strong> {station.longitude}</p>
+                </div>
+              </Popup>
+            </Marker>
+          ))}
+        </MapContainer>
+      </div>
+
     </div>
   )
 }

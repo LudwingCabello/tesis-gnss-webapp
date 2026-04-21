@@ -142,14 +142,22 @@ async def create_escenario(
     # Recibe ambos archivos y el numero de estaciones a generar
     raster_file: UploadFile = File(...),
     stations_file: UploadFile = File(...),
-    n_stations: int = Form(...)
+    n_stations: int = Form(...),
+    n_solutions: int = Form(5)
 ):   
     try: 
+
         # Validar que el numero de nuevas estaciones sea mayor que 0
         if n_stations <= 0:
             raise HTTPException(
                 status_code=400,
                 detail= "El número de estaciones debe ser mayor que cero"
+            )
+        # Validar que el número de soluciones sea mayor que 0
+        if n_solutions <= 0:
+            raise HTTPException(
+                status_code=400,
+                detail= "El número de soluciones debe ser mayor que cero"
             )
         
         # ---------- Procesar raster ----------
@@ -174,6 +182,7 @@ async def create_escenario(
                 status_code=400,
                 detail="El archivo de estaciones está vacío"
             )
+        
         # Valida que archivo contenga datos de utilidad para el sistema
         required_columns = {"STATION", "LATITUDE", "LONGITUDE", "ID"}
         file_columns = set(stations[0].keys())
@@ -183,6 +192,7 @@ async def create_escenario(
                 status_code=400,
                 detail=f"El archivo de estaciones debe contener las columnas: {required_columns}"
             )
+        
         # Se crea lista para almacenar estaciones existentes con formato adecuado para el mapa
         stations_for_map = []
         for station in stations:
@@ -198,13 +208,16 @@ async def create_escenario(
             except (ValueError, KeyError):
                 continue
 
+        #Se consytruye una lista de soluciones dummy 
         solutions = []
-
-        for i in range(5):
+        # Se genera la cantidad de soluciones indicada por el usuario
+        for i in range(n_solutions):
             solution = {
                 "id": i + 1,
+                # Se generan valores aleatorios entre 0.2 y 1.0 para los objetivos, redondeados a 3 decimales
                 "objective_1": round(random.uniform(0.2, 1.0), 3),
                 "objective_2": round(random.uniform(0.2, 1.0), 3),
+                # Frontera de pareto asignada aleatoriamente entre 0 y 2 
                 "pareto_front": random.randint(0, 2),
                 "new_stations": generate_dummy_new_stations(n_stations)
             }
@@ -217,7 +230,8 @@ async def create_escenario(
             "scenario": {
                 "raster_filename": raster_file.filename,
                 "stations_filename": stations_file.filename,
-                "n_stations": n_stations
+                "n_stations": n_stations,
+                "n_solutions": n_solutions 
             },
             "raster": {
                 "geojson_type": raster_type,
@@ -232,6 +246,7 @@ async def create_escenario(
             },
             "solutions": solutions
         }
+    
     # Manejo de errores especificos para cada tipo de problema
     except json.JSONDecodeError:
         raise HTTPException(

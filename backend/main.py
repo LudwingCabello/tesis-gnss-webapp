@@ -2,12 +2,13 @@ from fastapi import FastAPI, UploadFile, File, Form
 from fastapi import HTTPException 
 from fastapi.middleware.cors import CORSMiddleware
 import json
+import random
 import csv 
 import io
 
 app = FastAPI()
 
-# permite que el frontend (que corre en otro puerto) pueda hacer peticiones al backend sin problemas de CORS (Cross-Origin Resource Sharing)
+# permite que el frontend (que corre en otro puerto) pueda hacer peticiones al backend sin problemas de CORS 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -121,6 +122,20 @@ async def upload_stations(file: UploadFile = File(...)):
             status_code=500,
             detail=f"Error procesando archivo de estaciones: {str(e)}"
         )
+
+# Función para generar estaciones nuevas dummy
+def generate_dummy_new_stations(n_stations: int):
+    new_stations = []
+
+    for i in range(n_stations):
+        station = {
+            "id": f"NEW_{i+1}",
+            #generamos numeros aleatorios entre rangos correspondientes al territorio chileno
+            "latitude": round(random.uniform(-56.0, -17.0), 6),
+            "longitude": round(random.uniform(-76.0, -66.0), 6)        
+        }
+        new_stations.append(station)
+    return new_stations
     
 @app.post("/scenario") 
 async def create_escenario(
@@ -182,6 +197,18 @@ async def create_escenario(
                 })
             except (ValueError, KeyError):
                 continue
+
+        solutions = []
+
+        for i in range(5):
+            solution = {
+                "id": i + 1,
+                "objective_1": round(random.uniform(0.2, 1.0), 3),
+                "objective_2": round(random.uniform(0.2, 1.0), 3),
+                "pareto_front": random.randint(0, 2),
+                "new_stations": generate_dummy_new_stations(n_stations)
+            }
+            solutions.append(solution)
         
         #---------- Respuesta estructurada----------
         return {
@@ -203,14 +230,7 @@ async def create_escenario(
                 "sample_station": stations[0],
                 "items" : stations_for_map
             },
-            "solutions": [
-                {
-                    "id": 1,
-                    "objective_1": 0.75,
-                    "objective_2": 0.65,
-                    "stations_generated": n_stations
-                }
-            ]
+            "solutions": solutions
         }
     # Manejo de errores especificos para cada tipo de problema
     except json.JSONDecodeError:

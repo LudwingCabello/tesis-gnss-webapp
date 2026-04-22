@@ -150,12 +150,12 @@ def generate_dummy_new_stations(n_stations: int, existing_stations: list):
 def dominates(sol_a, sol_b):
     return (
         # Para que una solución A domine a otra B, A debe ser igual o mejor en ambos objetivos y estrictamente mejor en al menos uno
-        sol_a["objective_1"] <= sol_b["objective_1"] and
-        sol_a["objective_2"] <= sol_b["objective_2"] and
+        sol_a["objective_1"] >= sol_b["objective_1"] and
+        sol_a["objective_2"] >= sol_b["objective_2"] and
         (
             # Al menos uno de los objetivos debe ser estrictamente mejor para que una solución domine a la otra
-            sol_a["objective_1"] < sol_b["objective_1"] or
-            sol_a["objective_2"] < sol_b["objective_2"]
+            sol_a["objective_1"] > sol_b["objective_1"] or
+            sol_a["objective_2"] > sol_b["objective_2"]
         )
     )
 

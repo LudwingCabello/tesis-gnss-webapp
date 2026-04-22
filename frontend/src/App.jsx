@@ -9,9 +9,11 @@ import { AxisBottom, AxisLeft } from "@visx/axis"
 
 // Función para asignar colores a las soluciones según su frente de pareto
 const getFrontColor = (front) => {
-  if (front == 0) return "red"
-  if (front == 1) return "blue"
-  if (front == 2) return "green"
+  if (front == 0) return "#e63946"
+  if (front == 1) return "#1d4ed8"
+  if (front == 2) return "#2a9d8f"
+  if (front == 3) return "#9c0ecb"
+  if (front == 4) return "#dde751"
   return "gray"
 }
 
@@ -20,15 +22,24 @@ function App() {
   const [rasterFile, setRasterFile] = useState(null)
   const [stationsFile, setStationsFile] = useState(null)
   const [nStations, setNStations] = useState(0)
+  const [nSolutions, setNSolutions] = useState(5)
   const [response, setResponse] = useState(null)
   // Manejo del envío del formulario
   const handleSubmit = async (e) => {
     e.preventDefault()
+    
+    // Validación de número de soluciones
+    if (nSolutions <= 0) {
+      alert("El número de soluciones debe ser mayor a 0")
+      return
+    }
+
     // Validación de archivos y número de estaciones
     const formData = new FormData()
     formData.append("raster_file", rasterFile)
     formData.append("stations_file", stationsFile)
     formData.append("n_stations", nStations)
+    formData.append("n_solutions", nSolutions)
     // Envío de datos al endpoint scenario del backend
     try {
       const res = await fetch("http://localhost:8000/scenario", {
@@ -95,6 +106,15 @@ function App() {
           />
         </div>
 
+        <div>
+          <label>Número de soluciones: </label>
+          <input
+            type="number"
+            value={nSolutions}
+            onChange={(e) => setNSolutions(e.target.value)}
+          />
+        </div>
+
         <button type="submit">Enviar</button>
       </form>
     
@@ -132,6 +152,7 @@ function App() {
               <p>ID: {sol.id}</p>
               <p>Objetivo 1: {sol.objective_1}</p>
               <p>Objetivo 2: {sol.objective_2}</p>
+              <p>Frente de Pareto: {sol.pareto_front}</p>
               <p>Estaciones generadas: {sol.new_stations.length}</p>
               </div>
           ))}
@@ -142,13 +163,23 @@ function App() {
       {response && (
         <div style={{ marginTop: "30px" }}>
           <h2>Frontera de Pareto</h2>
-
+          {/* Se muestra al usario significado de cada color */}
+          <div style={{ marginBottom: "10px "}}>
+            <p><span style={{ color: "red", fontWeight: "bold" }}>●</span> Frente 0</p>
+            <p><span style={{ color: "blue", fontWeight: "bold" }}>●</span> Frente 1</p>
+            <p><span style={{ color: "green", fontWeight: "bold" }}>●</span> Frente 2</p>
+            <p><span style={{ color: "purple", fontWeight: "bold" }}>●</span> Frente 3</p>
+            <p><span style={{ color: "yellow", fontWeight: "bold" }}>●</span> Frente 4</p>
+          </div>
+          {/* Se crea el gráfico SVG para la frontera de Pareto */}
           <svg width={chartWidth} height={chartHeight} style={{ background: "white" }}>
+            {/* Eje X */}
             <AxisBottom
               top={chartHeight - margin.bottom}
               scale={xScale}
               label="Homogeneidad espacial"
             />
+            {/* Eje Y */}
             <AxisLeft
               left={margin.left}
               scale={yScale}
@@ -156,14 +187,19 @@ function App() {
             />
 
             <Group>
+              {/* Se recorren las soluciones para dibujar los puntos en el gráfico */}
               {solutions.map((solution) => (
                 <g key={solution.id}>
+                  {/* Punto en el gráfico */}
                   <Circle
                     cx={xScale(solution.objective_1)}
                     cy={yScale(solution.objective_2)}
                     r={6}
                     fill={getFrontColor(solution.pareto_front)}
+                    stroke="black"
+                    strokeWidth={1}
                   />
+                  {/* Etiqueta para el punto */}
                   <text
                     x={xScale(solution.objective_1) + 8}
                     y={yScale(solution.objective_2) - 8}

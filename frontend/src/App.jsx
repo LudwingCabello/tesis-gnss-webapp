@@ -2,6 +2,18 @@
 import { useState } from "react"
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet"
 import "leaflet/dist/leaflet.css"
+import { Group } from "@visx/group"
+import { Circle } from "@visx/shape"
+import { scaleLinear } from "@visx/scale"
+import { AxisBottom, AxisLeft } from "@visx/axis" 
+
+// Función para asignar colores a las soluciones según su frente de pareto
+const getFrontColor = (front) => {
+  if (front == 0) return "red"
+  if (front == 1) return "blue"
+  if (front == 2) return "green"
+  return "gray"
+}
 
 function App() {
   // Estados para almacenar los archivos, número de estaciones y respuesta del backend
@@ -32,6 +44,24 @@ function App() {
       console.error(error)
     }
   }
+
+  // Dimensiones y márgenes para la visualización de soluciones
+  const chartWidth = 700
+  const chartHeight = 400
+  const margin = { top: 20, right: 30, bottom: 50, left: 60 }
+  // Se extraen las soluciones de la respuesta, o se asigna lista vacía si no hay respuesta
+  const solutions = response?.solutions || []
+
+  // Convertir valores de datos a posiciones en pantalla usando escalas lineales
+  const xScale = scaleLinear({
+    domain: [0, 1],
+    range: [margin.left, chartWidth - margin.right]
+  })
+
+  const yScale = scaleLinear({
+    domain: [0, 1],
+    range: [chartHeight - margin.bottom, margin.top]
+  })
 
   return (
     <div style={{ padding: "20px" }}>
@@ -102,12 +132,53 @@ function App() {
               <p>ID: {sol.id}</p>
               <p>Objetivo 1: {sol.objective_1}</p>
               <p>Objetivo 2: {sol.objective_2}</p>
-              <p>Estaciones generadas: {sol.stations_generated}</p>
+              <p>Estaciones generadas: {sol.new_stations.length}</p>
               </div>
           ))}
 
         </div>
       )}
+
+      {response && (
+        <div style={{ marginTop: "30px" }}>
+          <h2>Frontera de Pareto</h2>
+
+          <svg width={chartWidth} height={chartHeight} style={{ background: "white" }}>
+            <AxisBottom
+              top={chartHeight - margin.bottom}
+              scale={xScale}
+              label="Homogeneidad espacial"
+            />
+            <AxisLeft
+              left={margin.left}
+              scale={yScale}
+              label="Variabilidad del desplazamiento"
+            />
+
+            <Group>
+              {solutions.map((solution) => (
+                <g key={solution.id}>
+                  <Circle
+                    cx={xScale(solution.objective_1)}
+                    cy={yScale(solution.objective_2)}
+                    r={6}
+                    fill={getFrontColor(solution.pareto_front)}
+                  />
+                  <text
+                    x={xScale(solution.objective_1) + 8}
+                    y={yScale(solution.objective_2) - 8}
+                    fontSize={12}
+                    fill="black"
+                  >
+                    {solution.id}
+                  </text>
+                </g>
+              ))}
+            </Group>
+          </svg>
+        </div>
+      )}
+
       <h2>Mapa base</h2>
       {/* Caja contenedora del mapa */}
       <div style={{ height: "500px", marginTop: "20px" }}>
@@ -121,7 +192,7 @@ function App() {
             attribution='&copy; OpenStreetMap contributors'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
-          {/* Recorro lista y por cada esatción se crea componente React */}
+          {/* Recorro lista y por cada estación se crea componente React */}
           {response && response.stations.items.map((station, index) => (
             <Marker
               key={index}

@@ -123,19 +123,77 @@ async def upload_stations(file: UploadFile = File(...)):
             detail=f"Error procesando archivo de estaciones: {str(e)}"
         )
 
-# Función para generar estaciones nuevas dummy
-def generate_dummy_new_stations(n_stations: int):
+# Función para generar estaciones nuevas dummy cercanas a las estaciones existentes
+def generate_dummy_new_stations(n_stations: int, existing_stations: list):
     new_stations = []
 
     for i in range(n_stations):
-        station = {
+        # Selecciona una estación existente al azar como base para generar una nueva estación cercana
+        base_station = random.choice(existing_stations)
+
+        # Se toma la latitud y longitud de la estación base para generar coordenadas cercanas
+        base_lat = base_station["latitude"]
+        base_lon = base_station["longitude"]
+
+        new_station = {
             "id": f"NEW_{i+1}",
-            #generamos numeros aleatorios entre rangos correspondientes al territorio chileno
-            "latitude": round(random.uniform(-56.0, -17.0), 6),
-            "longitude": round(random.uniform(-76.0, -66.0), 6)        
+            # Mueve la nueva estación alrededor de la existente
+            "latitude": round(base_lat + random.uniform(-0.5, 0.5), 6),
+            "longitude": round(base_lon + random.uniform(-0.5, 0.5), 6)        
         }
-        new_stations.append(station)
+        new_stations.append(new_station)
+
     return new_stations
+
+# Funcion para determinar si una solución domina a otra 
+# ( mientras menor sea el valor de los objetivos, mejor es la solución)
+def dominates(sol_a, sol_b):
+    return (
+        # Para que una solución A domine a otra B, A debe ser igual o mejor en ambos objetivos y estrictamente mejor en al menos uno
+        sol_a["objective_1"] <= sol_b["objective_1"] and
+        sol_a["objective_2"] <= sol_b["objective_2"] and
+        (
+            # Al menos uno de los objetivos debe ser estrictamente mejor para que una solución domine a la otra
+            sol_a["objective_1"] < sol_b["objective_1"] or
+            sol_a["objective_2"] < sol_b["objective_2"]
+        )
+    )
+
+# Función para asignar frentes de pareto a una lista de soluciones
+def pareto_fronts(solutions):
+    # Se crea copia de la lista de soluciones
+    list = solutions[:]
+    # Se empieza por el frente 0
+    front_number = 0
+
+    # Mientras queden soluciones por evaluar, se sigue buscando el siguiente frente de pareto
+    while list:
+        # Lista vacia para el frente actual
+        actual_front = []
+        # Se revisa cada solucion pendiente
+        for sol in list:
+            # Se asume que solución no esta dominada
+            dominated = False
+            # Se compara con todas las soluciones de la copia de la lista de soluciones
+            for other in list:
+                # Si se encuentra otra que la domina, se marca como dominada
+                if sol != other and dominates(other, sol):
+                    dominated = True
+                    break
+            # Si no se encuentra ninguna solución que la domine, se agrega al frente actual
+            if not dominated:
+                actual_front.append(sol)
+        # Se asigna el número de frente de pareto a cada solución del frente actual
+        for sol in actual_front:
+            sol["pareto_front"] = front_number
+        # Se eliminan las soluciones del frente actual de la lista de soluciones pendientes
+        list = [sol for sol in list if sol not in actual_front]
+        # Se pasa al siguiente frente de pareto
+        front_number += 1   
+    
+    return solutions
+            
+
     
 @app.post("/scenario") 
 async def create_escenario(
@@ -208,7 +266,7 @@ async def create_escenario(
             except (ValueError, KeyError):
                 continue
 
-        #Se consytruye una lista de soluciones dummy 
+        #Se construye una lista de soluciones dummy 
         solutions = []
         # Se genera la cantidad de soluciones indicada por el usuario
         for i in range(n_solutions):
@@ -218,10 +276,12 @@ async def create_escenario(
                 "objective_1": round(random.uniform(0.2, 1.0), 3),
                 "objective_2": round(random.uniform(0.2, 1.0), 3),
                 # Frontera de pareto asignada aleatoriamente entre 0 y 2 
-                "pareto_front": random.randint(0, 2),
-                "new_stations": generate_dummy_new_stations(n_stations)
+                "new_stations": generate_dummy_new_stations(n_stations, stations_for_map)
             }
             solutions.append(solution)
+        
+        # Se asignan los frentes de pareto a las soluciones generadas
+        solutions = pareto_fronts(solutions)
         
         #---------- Respuesta estructurada----------
         return {

@@ -24,6 +24,7 @@ function App() {
   const [nStations, setNStations] = useState(0)
   const [nSolutions, setNSolutions] = useState(5)
   const [response, setResponse] = useState(null)
+  const [selectedSolution, setSelectedSolution] = useState(null)
   // Manejo del envío del formulario
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -33,6 +34,9 @@ function App() {
       alert("El número de soluciones debe ser mayor a 0")
       return
     }
+    
+    // Reiniciar solución seleccionada al enviar nuevo escenario
+    setSelectedSolution(null)
 
     // Validación de archivos y número de estaciones
     const formData = new FormData()
@@ -194,10 +198,12 @@ function App() {
                   <Circle
                     cx={xScale(solution.objective_1)}
                     cy={yScale(solution.objective_2)}
-                    r={6}
+                    r={selectedSolution?.id === solution.id ? 9 : 6}
                     fill={getFrontColor(solution.pareto_front)}
-                    stroke="black"
-                    strokeWidth={1}
+                    stroke={selectedSolution?.id === solution.id ? "black" : "black"}
+                    strokeWidth={selectedSolution?.id === solution.id ? 3 : 1}
+                    style={{ cursor: "pointer" }}
+                    onClick={() => setSelectedSolution(solution)}
                   />
                   {/* Etiqueta para el punto */}
                   <text
@@ -212,6 +218,21 @@ function App() {
               ))}
             </Group>
           </svg>
+        </div>
+      )}
+
+      {selectedSolution && (
+        <div style={{ marginTop: "20px" }}>
+          <h3>Solución seleccionada</h3>
+          <p>ID: {selectedSolution.id}</p>
+          <p>Homogeneidad espacial: {selectedSolution.objective_1}</p>
+          <p>Variabilidad del desplazamiento: {selectedSolution.objective_2}</p>
+          <p>Frente de Pareto: {selectedSolution.pareto_front}</p>
+          <p>Estaciones nuevas: {selectedSolution.new_stations.length}</p>
+
+          <button onClick={() => setSelectedSolution(null)}>
+            Cerrar selección
+          </button>
         </div>
       )}
 

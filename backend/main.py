@@ -124,22 +124,19 @@ async def upload_stations(file: UploadFile = File(...)):
         )
 
 # Función para generar estaciones nuevas dummy cercanas a las estaciones existentes
-def generate_dummy_new_stations(n_stations: int, existing_stations: list):
+def generate_dummy_new_stations(n_stations: int, base_station: list):
     new_stations = []
 
+    # Se toma la latitud y longitud de la estación base para generar coordenadas cercanas
+    base_lat = base_station["latitude"]
+    base_lon = base_station["longitude"]
+
     for i in range(n_stations):
-        # Selecciona una estación existente al azar como base para generar una nueva estación cercana
-        base_station = random.choice(existing_stations)
-
-        # Se toma la latitud y longitud de la estación base para generar coordenadas cercanas
-        base_lat = base_station["latitude"]
-        base_lon = base_station["longitude"]
-
         new_station = {
             "id": f"NEW_{i+1}",
             # Mueve la nueva estación alrededor de la existente
-            "latitude": round(base_lat + random.uniform(-0.5, 0.5), 6),
-            "longitude": round(base_lon + random.uniform(-0.5, 0.5), 6)        
+            "latitude": round(base_lat + random.uniform(-0.08, 0.08), 6),
+            "longitude": round(base_lon + random.uniform(-0.08, 0.08), 6)        
         }
         new_stations.append(new_station)
 
@@ -266,8 +263,10 @@ async def create_escenario(
             except (ValueError, KeyError):
                 continue
 
-        #Se construye una lista de soluciones dummy 
+        # Se construye una lista de soluciones dummy 
         solutions = []
+        # Se elige una estación base aleatoria de la lista de estaciones para generar las nuevas estaciones cercanas a ella
+        base_sstation = random.choice(stations_for_map)
         # Se genera la cantidad de soluciones indicada por el usuario
         for i in range(n_solutions):
             solution = {
@@ -276,7 +275,7 @@ async def create_escenario(
                 "objective_1": round(random.uniform(0.2, 1.0), 3),
                 "objective_2": round(random.uniform(0.2, 1.0), 3),
                 # Frontera de pareto asignada aleatoriamente entre 0 y 2 
-                "new_stations": generate_dummy_new_stations(n_stations, stations_for_map)
+                "new_stations": generate_dummy_new_stations(n_stations, base_sstation)
             }
             solutions.append(solution)
         

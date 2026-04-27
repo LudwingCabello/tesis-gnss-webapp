@@ -1,11 +1,12 @@
 
 import { useState } from "react"
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet"
+import { MapContainer, TileLayer, Marker, Popup , CircleMarker } from "react-leaflet"
 import "leaflet/dist/leaflet.css"
 import { Group } from "@visx/group"
 import { Circle } from "@visx/shape"
 import { scaleLinear } from "@visx/scale"
 import { AxisBottom, AxisLeft } from "@visx/axis" 
+import L from "leaflet"
 
 // Función para asignar colores a las soluciones según su frente de pareto
 const getFrontColor = (front) => {
@@ -16,6 +17,15 @@ const getFrontColor = (front) => {
   if (front == 4) return "#dde751"
   return "gray"
 }
+
+const redIcon = new L.Icon({
+  iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png",
+  shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41]
+})
 
 function App() {
   // Estados para almacenar los archivos, número de estaciones y respuesta del backend
@@ -198,11 +208,14 @@ function App() {
                   <Circle
                     cx={xScale(solution.objective_1)}
                     cy={yScale(solution.objective_2)}
+                    /* Solución seleccionada tiene radio mayor */
                     r={selectedSolution?.id === solution.id ? 9 : 6}
                     fill={getFrontColor(solution.pareto_front)}
                     stroke={selectedSolution?.id === solution.id ? "black" : "black"}
+                    /* Solución seleccionada tiene borde más grueso */
                     strokeWidth={selectedSolution?.id === solution.id ? 3 : 1}
                     style={{ cursor: "pointer" }}
+                    /* Se guarda la solución seleccionada */
                     onClick={() => setSelectedSolution(solution)}
                   />
                   {/* Etiqueta para el punto */}
@@ -220,7 +233,8 @@ function App() {
           </svg>
         </div>
       )}
-
+      
+      {/* Información de la solución seleccionada */}
       {selectedSolution && (
         <div style={{ marginTop: "20px" }}>
           <h3>Solución seleccionada</h3>
@@ -266,9 +280,26 @@ function App() {
               </Popup>
             </Marker>
           ))}
+          {/* Marcadores para las nuevas estaciones, recorriendo las estaciones de la solución seleccionada */}
+          {selectedSolution && selectedSolution.new_stations.map((station, index) => (
+            <Marker
+              key={'new-${selectedSolution.id}-${index}}'}
+              position={[station.latitude, station.longitude]}
+              icon={redIcon}
+            >
+              <Popup>
+                <div>
+                  <p><strong>Solución:</strong> {selectedSolution.id}</p>
+                  <p><strong>Nueva estación:</strong> {station.station}</p>
+                  <p><strong>ID:</strong> {station.id}</p>
+                  <p><strong>Latitud:</strong> {station.latitude}</p>
+                  <p><strong>Longitud:</strong> {station.longitude}</p>
+                </div>
+              </Popup>
+            </Marker>
+        ))}
         </MapContainer>
       </div>
-
     </div>
   )
 }

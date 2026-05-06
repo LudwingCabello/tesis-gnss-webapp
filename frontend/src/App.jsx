@@ -38,6 +38,7 @@ function App() {
   const [errorMessage, setErrorMessage] = useState("")
   const [algorithms, setAlgorithms] = useState([])
   const [selectedAlgorithm, setSelectedAlgorithm] = useState("")
+  const [algorithmParams, setAlgorithmParams] = useState({})
 
   // Se obtiene el catálogo de algoritmos disponibles al cargar la aplicación
   useEffect(() => {
@@ -50,6 +51,11 @@ function App() {
         console.error(error)
       })
   }, [])
+
+  // Se obtiene el algoritmo seleccionado del catálogo para mostrar sus parámetros
+  const currentAlgorithm = algorithms.find(
+    (algorithm) => algorithm.id === selectedAlgorithm
+  )
   
   // Manejo del envío del formulario
   const handleSubmit = async (e) => {
@@ -96,6 +102,9 @@ function App() {
     formData.append("stations_file", stationsFile)
     formData.append("n_stations", nStations)
     formData.append("n_solutions", nSolutions)
+    // Se agregan al formData el algoritmo seleccionado y sus parámetros, convirtiendo estos últimos a JSON para enviarlos como string
+    formData.append("algorithm", selectedAlgorithm)
+    formData.append("algorithm_params", JSON.stringify(algorithmParams))
     // Envío de datos al endpoint scenario del backend
     try {
       const res = await fetch("http://localhost:8000/scenario", {
@@ -175,6 +184,30 @@ function App() {
           </select>
         </div>
 
+        {currentAlgorithm && (
+          <div>
+            <h3>Parámetros de {currentAlgorithm.name}</h3>
+
+            {currentAlgorithm.parameters.map((param) => (
+              <div key={param.name}>
+                <label>{param.label}: </label>
+                <input
+                  type={param.type}
+                  defaultValue={param.default}
+                  min={param.min}
+                  max={param.max}
+                  onChange={(e) =>
+                    setAlgorithmParams({
+                      ...algorithmParams,
+                      [param.name]: e.target.value
+                    })
+                  }
+                />
+              </div>
+            ))}
+          </div>
+        )}
+
         <div>
           <label>Número de estaciones: </label>
           <input
@@ -241,6 +274,22 @@ function App() {
               </div>
           ))}
 
+        </div>
+      )}
+      
+      {currentAlgorithm && (
+        <div>
+          <h3>Algoritmo utilizado</h3>
+          <p>{currentAlgorithm.name}</p>
+
+          <h4>Parámetros enviados</h4>
+          <ul>
+            {currentAlgorithm.parameters.map((param) => (
+              <li key={param.name}>
+                {param.label}: {algorithmParams[param.name] ?? param.default}
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 

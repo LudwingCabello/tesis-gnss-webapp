@@ -35,13 +35,41 @@ function App() {
   const [nSolutions, setNSolutions] = useState(5)
   const [response, setResponse] = useState(null)
   const [selectedSolution, setSelectedSolution] = useState(null)
+  const [errorMessage, setErrorMessage] = useState("")
+  
   // Manejo del envío del formulario
   const handleSubmit = async (e) => {
     e.preventDefault()
     
-    // Validación de número de soluciones
+    setErrorMessage("")
+
+    if (!rasterFile) {
+      setErrorMessage("Debe subir un archivo raster .geojson")
+      return
+    }
+
+    if (!stationsFile) {
+      setErrorMessage("Debe subir un archivo de estaciones .csv")
+      return
+    }
+
+    if (!rasterFile.name.endsWith(".geojson")) {
+      setErrorMessage("El archivo raster debe tener extensión .geojson")
+      return
+    }
+
+    if (!stationsFile.name.endsWith(".csv")) {
+      setErrorMessage("El archivo de estaciones debe tener extensión .csv")
+      return
+    }
+
+    if (nStations <= 0) {
+      setErrorMessage("El número de estaciones debe ser mayor que 0")
+      return
+    }
+
     if (nSolutions <= 0) {
-      alert("El número de soluciones debe ser mayor a 0")
+      setErrorMessage("El número de soluciones debe ser mayor que 0")
       return
     }
     
@@ -60,9 +88,14 @@ function App() {
         method: "POST",
         body: formData
       })
-      // interpreta respuesta como JSON convirtiendolo a objeto JavaScript
+      // Se obtiene la respuesta del backend y se maneja el caso de error
       const data = await res.json()
-      //guardando el objeto en response
+      // Si la respuesta no es ok, se muestra el mensaje de error enviado por el backend o un mensaje genérico
+      if (!res.ok) {
+        setErrorMessage(data.detail || "Ocurrió un error al procesar el escenario")
+        return
+      }
+      // Si la respuesta es ok, se guarda la respuesta en el estado para mostrarla al usuario
       setResponse(data)
 
     } catch (error) {
@@ -131,7 +164,13 @@ function App() {
 
         <button type="submit">Enviar</button>
       </form>
-    
+
+      {errorMessage && (
+        <div style={{ color: "red", marginTop: "15px", fontWeight: "bold" }}>
+          {errorMessage}
+        </div>
+      )}
+      
       {response && (
         <div style={{ marginTop: "20px" }}>
           <h2>Resultado del Escenario</h2>

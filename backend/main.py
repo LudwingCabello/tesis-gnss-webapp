@@ -123,6 +123,33 @@ async def upload_stations(file: UploadFile = File(...)):
             detail=f"Error procesando archivo de estaciones: {str(e)}"
         )
 
+# Función para asegurar una subida de archivos correcta y con el formato esperado para el funcionamiento del sistema   
+def validate_uploaded_files(raster_file: UploadFile, stations_file: UploadFile):
+    
+    if not raster_file.filename:
+        raise HTTPException(
+            status_code=400,
+            detail="Debe subir un archivo raster"
+        )
+    
+    if not stations_file.filename:
+        raise HTTPException(
+            status_code=400,
+            detail="Debe subir un archivo de estaciones"
+        )
+    
+    if not raster_file.filename.endswith(".geojson"):
+        raise HTTPException(
+            status_code=400,
+            detail="El archivo raster debe tener extensión .geojson"
+        )
+    
+    if not stations_file.filename.endswith(".csv"):
+        raise HTTPException(
+            status_code=400,
+            detail="El archivo de estaciones debe tener extensión .csv"
+        )
+
 # Función para generar estaciones nuevas dummy cercanas a las estaciones existentes
 def generate_dummy_new_stations(n_stations: int, base_station: list):
     new_stations = []
@@ -142,8 +169,9 @@ def generate_dummy_new_stations(n_stations: int, base_station: list):
 
     return new_stations
 
+
 # Funcion para determinar si una solución domina a otra 
-# ( mientras menor sea el valor de los objetivos, mejor es la solución)
+# ( mientras mayor  sea el valor de los objetivos, mejor es la solución)
 def dominates(sol_a, sol_b):
     return (
         # Para que una solución A domine a otra B, A debe ser igual o mejor en ambos objetivos y estrictamente mejor en al menos uno
@@ -189,7 +217,85 @@ def pareto_fronts(solutions):
         front_number += 1   
     
     return solutions
+
+# Función para validar que la estructura de las soluciones generadas sea correcta 
+# y contenga los campos necesarios para el funcionamiento del sistema          
+def validate_solution_json(solutions: list):
+
+    # Valida que la salida de soluciones sea una lista 
+    if not isinstance(solutions, list):
+        raise HTTPException(
+            status_code=500,
+            detail="La salida de soluciones debe ser una lista"
+        )
+    
+    # Valida que la lista de soluciones no esté vacía
+    if len(solutions) == 0:
+        raise HTTPException(
+            status_code=500,
+            detail="La lista de soluciones no puede estar vacía"
+        )
+    
+    # Valida los campos requeridos para cada solución 
+    required_solution_fields= {
+        "id",
+        "objective_1",
+        "objective_2",
+        "pareto_front",
+        "new_stations"
+    }
+
+    # Campos requeridos para cada estación nueva dentro de las soluciones
+    required_station_fields = {
+        "id",
+        "latitude",
+        "longitude"
+    }
+
+    # Se valida cada solución de la lista para asegurar que contenga los campos necesarios y que las estaciones nuevas tengan la estructura correcta
+    for solution in solutions:
+        # Se verifica que cada solución contenga los campos requeridos para su correcto funcionamiento
+        missing_fields = required_solution_fields - solution.keys()
+
+        # Si faltan campos requeridos en la solución, se lanza una excepción con un mensaje detallado indicando qué campos faltan y a qué solución corresponde
+        if missing_fields:
+            raise HTTPException(
+                status_code=500,
+                detail=f"La solución {solution.get('id', 'sin_id')} no contiene los campos requeridos: {missing_fields}"
+            )
+        
+        # Se verifica que el campo de estaciones nuevas sea una lista, ya que se espera que contenga múltiples estaciones con su propia estructura
+        if not isinstance(solution["new_stations"], list):
+            raise HTTPException(
+                status_code=500,
+                detail=f"La solución {solution['id']} debe contener una lista de estaciones nuevas"
+            )
+        
+        # Se valida cada estación nueva dentro de la solución para asegurar que contenga los campos necesarios 
+        for station in solution["new_stations"]:
+            # Se verifica que cada estación nueva contenga los campos requeridos para su correcto funcionamiento
+            missing_station_fields = required_station_fields - set(station.keys())
+
+            # Si faltan campos requeridos en alguna estación nueva, se lanza una excepción con un mensaje indicando qué campos faltan, a qué estación corresponde y a qué solución pertenece esa estación
+            if missing_station_fields:
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"La estación {station.get('id', 'sin_id')} en la solución {solution['id']} no contiene los campos requeridos: {missing_station_fields}"      
+                )
             
+            # Se verifica que las coordenadas latitud y longitud sean numericas
+            if not isinstance(station["latitude"], (int, float)):
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"La latitud de la estación {station['id']} debe ser numerica"
+                )
+            
+            if not isinstance(station["longitude"], (int, float)):
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"La longitud de la estación {station['id']} debe ser numerica"
+                )
+
 
     
 @app.post("/scenario") 
@@ -201,6 +307,9 @@ async def create_escenario(
     n_solutions: int = Form(5)
 ):   
     try: 
+        
+        # Se valida que los archivos subidos sean correctos y tengan el formato esperado
+        validate_uploaded_files(raster_file, stations_file)
 
         # Validar que el numero de nuevas estaciones sea mayor que 0
         if n_stations <= 0:
@@ -281,6 +390,10 @@ async def create_escenario(
         
         # Se asignan los frentes de pareto a las soluciones generadas
         solutions = pareto_fronts(solutions)
+
+        # Se valida que la estructura de las soluciones generadas sea correcta 
+        # y contenga los campos necesarios para el funcionamiento del sistema
+        validate_solution_json(solutions)
         
         #---------- Respuesta estructurada----------
         return {

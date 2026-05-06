@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react"
-import { MapContainer, TileLayer, Marker, Popup , CircleMarker } from "react-leaflet"
+import { MapContainer, TileLayer, Marker, Popup , CircleMarker, GeoJSON } from "react-leaflet"
 import "leaflet/dist/leaflet.css"
 import { Group } from "@visx/group"
 import { Circle } from "@visx/shape"
@@ -39,6 +39,10 @@ function App() {
   const [algorithms, setAlgorithms] = useState([])
   const [selectedAlgorithm, setSelectedAlgorithm] = useState("")
   const [algorithmParams, setAlgorithmParams] = useState({})
+  const [showExistingStations, setShowExistingStations] = useState(true)
+  const [showNewStations, setShowNewStations] = useState(true)
+  const [showBaseMap, setShowBaseMap] = useState(true)
+  const [showRasterLayer, setShowRasterLayer] = useState(true)  
 
   // Se obtiene el catálogo de algoritmos disponibles al cargar la aplicación
   useEffect(() => {
@@ -369,6 +373,50 @@ function App() {
         </div>
       )}
 
+      <div style={{ marginBottom: "10px" }}>
+        <h3>Capas del mapa</h3>
+
+        <label>
+          <input
+            type="checkbox"
+            checked={showBaseMap}
+            onChange={(e) => setShowBaseMap(e.target.checked)}
+          />
+          Mapa base
+        </label>
+
+        <br />
+
+        <label>
+          <input
+            type="checkbox"
+            checked={showExistingStations}
+            onChange={(e) => setShowExistingStations(e.target.checked)}
+          />
+          Estaciones existentes
+        </label>
+
+        <br />
+
+        <label>
+          <input
+            type="checkbox"
+            checked={showNewStations}
+            onChange={(e) => setShowNewStations(e.target.checked)}
+          />
+          Estaciones nuevas
+        </label>
+
+        <label>
+          <input
+            type="checkbox"
+            checked={showRasterLayer}
+            onChange={(e) => setShowRasterLayer(e.target.checked)}
+          />
+          Raster / GeoJSON
+        </label>
+      </div>
+
       <h2>Mapa base</h2>
       {/* Caja contenedora del mapa */}
       <div style={{ height: "500px", marginTop: "20px" }}>
@@ -378,20 +426,32 @@ function App() {
           zoom={4}
           style={{ height: "100%", width: "100%" }}
         >
-          <TileLayer
-            attribution='&copy; OpenStreetMap contributors'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          />
-          {/* Recorro lista y por cada estación se crea componente React */}
-          {response && response.stations.items.map((station, index) => (
+          {showBaseMap && (
+            <TileLayer
+              attribution='&copy; OpenStreetMap contributors'
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            />
+          )}
+          {/* Capa de raster / GeoJSON */}
+          {showRasterLayer && response?.raster?.geojson && (
+            <GeoJSON
+              data={response.raster.geojson}
+              style={{
+                color: "purple",
+                weight: 0.4,
+                fillOpacity: 0.08
+              }}
+            />
+          )}
+          {/* Marcadores para las estaciones existentes */}
+          {showExistingStations && response && response.stations.items.map((station, index) => (
             <Marker
-              key={index}
+              key={`existing-${index}`}
               position={[station.latitude, station.longitude]}
             >
-              {/* Información de la estación */}
               <Popup>
                 <div>
-                  <p><strong>Estación:</strong> {station.station}</p>
+                  <p><strong>Estación existente:</strong> {station.station}</p>
                   <p><strong>ID:</strong> {station.id}</p>
                   <p><strong>Latitud:</strong> {station.latitude}</p>
                   <p><strong>Longitud:</strong> {station.longitude}</p>
@@ -400,23 +460,23 @@ function App() {
             </Marker>
           ))}
           {/* Marcadores para las nuevas estaciones, recorriendo las estaciones de la solución seleccionada */}
-          {selectedSolution && selectedSolution.new_stations.map((station, index) => (
+          {showNewStations && selectedSolution && selectedSolution.new_stations.map((station, index) => (
             <Marker
-              key={'new-${selectedSolution.id}-${index}}'}
+              key={`new-${selectedSolution.id}-${index}`}
               position={[station.latitude, station.longitude]}
               icon={redIcon}
             >
               <Popup>
                 <div>
                   <p><strong>Solución:</strong> {selectedSolution.id}</p>
-                  <p><strong>Nueva estación:</strong> {station.station}</p>
+                  <p><strong>Nueva estación:</strong></p>
                   <p><strong>ID:</strong> {station.id}</p>
                   <p><strong>Latitud:</strong> {station.latitude}</p>
                   <p><strong>Longitud:</strong> {station.longitude}</p>
                 </div>
               </Popup>
             </Marker>
-        ))}
+          ))}
         </MapContainer>
       </div>
     </div>

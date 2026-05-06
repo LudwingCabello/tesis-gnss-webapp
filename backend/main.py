@@ -364,6 +364,67 @@ def validate_solution_json(solutions: list):
                     detail=f"La longitud de la estación {station['id']} debe ser numerica"
                 )
 
+# Función para validar que los parámetros del algoritmo seleccionado sean correctos, tengan el formato esperado 
+# y cumplan con las restricciones definidas en el catálogo de algoritmos        
+def validate_algorithm_params(algorithm_id: str, algorithm_params_raw: str):
+    selected_algorithm = None
+
+    # Se busca el algoritmo seleccionado en el catálogo de algoritmos disponibles para validar que exista y obtener su configuración de parámetros
+    for algorithm in ALGORITHM_CATALOG:
+        if algorithm["id"] == algorithm_id:
+            selected_algorithm = algorithm
+            break
+    
+    # Si no se encuentra el algoritmo seleccionado en el catálogo, se lanza una excepción con un mensaje indicando que el algoritmo no existe
+    if selected_algorithm is None:
+        raise HTTPException(
+            status_code=400,
+            detail="El algoritmo seleccionado no existe"
+        )
+
+    # Se intenta convertir los parámetros del algoritmo enviados como string a un diccionario de Python, 
+    # si el formato no es JSON válido se lanza una excepción con un mensaje indicando que los parámetros no tienen el formato esperado
+    try:
+        algorithm_params = json.loads(algorithm_params_raw)
+    except json.JSONDecodeError:
+        raise HTTPException(
+            status_code=400,
+            detail="Los parámetros del algoritmo no tienen formato JSON válido"
+        )
+
+    # Se valida cada parámetro definido para el algoritmo seleccionado en el catálogo, 
+    # asegurando que los parámetros enviados cumplan con las restricciones definidas (tipo, rango, etc.) y si no se envió algún parámetro se asigna su valor por defecto definido en el catálogo
+    for param in selected_algorithm["parameters"]:
+        param_name = param["name"]
+
+        if param_name not in algorithm_params:
+            algorithm_params[param_name] = param["default"]
+
+        # Se valida que el valor del parámetro sea numérico, y si no lo es se lanza una excepción con un mensaje indicando que el parámetro debe ser numérico
+        try:
+            value = float(algorithm_params[param_name])
+        except (ValueError, TypeError):
+            raise HTTPException(
+                status_code=400,
+                detail=f"El parámetro {param['label']} debe ser numérico"
+            )
+
+        if "min" in param and value < param["min"]:
+            raise HTTPException(
+                status_code=400,
+                detail=f"El parámetro {param['label']} debe ser mayor o igual a {param['min']}"
+            )
+
+        if "max" in param and value > param["max"]:
+            raise HTTPException(
+                status_code=400,
+                detail=f"El parámetro {param['label']} debe ser menor o igual a {param['max']}"
+            )
+
+        algorithm_params[param_name] = value
+
+    return selected_algorithm, algorithm_params
+
 
     
 @app.post("/scenario") 
@@ -372,7 +433,9 @@ async def create_escenario(
     raster_file: UploadFile = File(...),
     stations_file: UploadFile = File(...),
     n_stations: int = Form(...),
-    n_solutions: int = Form(5)
+    n_solutions: int = Form(5),    
+    algorithm: str = Form(...),
+    algorithm_params: str = Form("{}")
 ):   
     try: 
         
@@ -462,6 +525,10 @@ async def create_escenario(
         # Se valida que la estructura de las soluciones generadas sea correcta 
         # y contenga los campos necesarios para el funcionamiento del sistema
         validate_solution_json(solutions)
+
+        # Se valida que el algoritmo seleccionado exista en el catálogo y
+        #  que los parámetros enviados sean correctos, tengan el formato esperado y cumplan con las restricciones definidas en el catálogo de algoritmos
+        selected_algorithm, validated_algorithm_params = validate_algorithm_params(algorithm, algorithm_params)
         
         #---------- Respuesta estructurada----------
         return {
@@ -471,12 +538,15 @@ async def create_escenario(
                 "raster_filename": raster_file.filename,
                 "stations_filename": stations_file.filename,
                 "n_stations": n_stations,
-                "n_solutions": n_solutions 
+                "n_solutions": n_solutions,
+                "algorithm": selected_algorithm["name"],
+                "algorithm_params": validated_algorithm_params,
             },
             "raster": {
                 "geojson_type": raster_type,
                 "features_count": len(raster_features),
-                "has_crs": raster_has_crs
+                "has_crs": raster_has_crs,
+                "geojson": raster_data
             },
             "stations": {
                 "total": len(stations),

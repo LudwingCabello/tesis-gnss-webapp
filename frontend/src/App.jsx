@@ -1,5 +1,5 @@
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { MapContainer, TileLayer, Marker, Popup , CircleMarker } from "react-leaflet"
 import "leaflet/dist/leaflet.css"
 import { Group } from "@visx/group"
@@ -36,6 +36,20 @@ function App() {
   const [response, setResponse] = useState(null)
   const [selectedSolution, setSelectedSolution] = useState(null)
   const [errorMessage, setErrorMessage] = useState("")
+  const [algorithms, setAlgorithms] = useState([])
+  const [selectedAlgorithm, setSelectedAlgorithm] = useState("")
+
+  // Se obtiene el catálogo de algoritmos disponibles al cargar la aplicación
+  useEffect(() => {
+    fetch("http://localhost:8000/algorithms")
+      .then((res) => res.json())
+      .then((data) => {
+        setAlgorithms(data.algorithms)
+      })
+      .catch((error) => {
+        console.error(error)
+      })
+  }, [])
   
   // Manejo del envío del formulario
   const handleSubmit = async (e) => {
@@ -145,6 +159,23 @@ function App() {
         </div>
 
         <div>
+          <label>Algoritmo:</label>
+
+          <select
+            value={selectedAlgorithm}
+            onChange={(e) => setSelectedAlgorithm(e.target.value)}
+          >
+            <option value="">Seleccione un algoritmo</option>
+
+            {algorithms.map((algorithm) => (
+              <option key={algorithm.id} value={algorithm.id}>
+                {algorithm.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
           <label>Número de estaciones: </label>
           <input
             type="number"
@@ -170,7 +201,7 @@ function App() {
           {errorMessage}
         </div>
       )}
-      
+
       {response && (
         <div style={{ marginTop: "20px" }}>
           <h2>Resultado del Escenario</h2>

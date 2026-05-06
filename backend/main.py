@@ -123,6 +123,74 @@ async def upload_stations(file: UploadFile = File(...)):
             detail=f"Error procesando archivo de estaciones: {str(e)}"
         )
 
+# Endpoint para obtener el catálogo de algoritmos disponibles, con sus parámetros y descripciones
+ALGORITHM_CATALOG = [
+    {
+        "id": "nsga2",
+        "name": "NSGA-II",
+        "description": "Algoritmo evolutivo multiobjetivo de prueba.",
+        "parameters": [
+            {
+                "name": "population_size",
+                "label": "Tamaño de población",
+                "type": "number",
+                "default": 50,
+                "min": 1
+            },
+            {
+                "name": "generations",
+                "label": "Número de generaciones",
+                "type": "number",
+                "default": 100,
+                "min": 1
+            },
+            {
+                "name": "mutation_rate",
+                "label": "Tasa de mutación",
+                "type": "number",
+                "default": 0.1,
+                "min": 0,
+                "max": 1
+            }
+        ]
+    },
+    {
+        "id": "mosa",
+        "name": "MOSA",
+        "description": "Recocido simulado multiobjetivo de prueba.",
+        "parameters": [
+            {
+                "name": "initial_temperature",
+                "label": "Temperatura inicial",
+                "type": "number",
+                "default": 100,
+                "min": 1
+            },
+            {
+                "name": "cooling_rate",
+                "label": "Tasa de enfriamiento",
+                "type": "number",
+                "default": 0.95,
+                "min": 0,
+                "max": 1
+            },
+            {
+                "name": "iterations",
+                "label": "Iteraciones",
+                "type": "number",
+                "default": 100,
+                "min": 1
+            }
+        ]
+    }
+]
+
+@app.get("/algorithms")
+async def get_algorithms():
+    return {
+        "algorithms": ALGORITHM_CATALOG
+    }
+
 # Función para asegurar una subida de archivos correcta y con el formato esperado para el funcionamiento del sistema   
 def validate_uploaded_files(raster_file: UploadFile, stations_file: UploadFile):
     

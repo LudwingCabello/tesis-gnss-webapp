@@ -505,11 +505,31 @@ function App() {
           {showRasterLayer && response?.raster?.geojson && (
             <GeoJSON
               data={response.raster.geojson}
-              style={{
-                color: "purple",
-                weight: 0.4,
-                fillOpacity: 0.08
-              }}
+              // Se asignan colores a cada celca del GeoJSON según el valor de la propiedad valor_centroide,
+              //  utilizando una escala de colores de bajo a alto
+              style={(feature) => {
+                const value = feature.properties.valor_centroide
+
+                let fillColor = "#2c7bb6" // bajo
+
+                if (value >=2.0){
+                  fillColor = "#d7191c" // alto
+                } else if (value >=1.5){
+                  fillColor = "#fdae61" // medio-alto
+                } else if (value >=1.0){
+                  fillColor = "#ffffbf" // medio
+                } else if (value >=0.5){
+                  fillColor = "#a6d96a" // medio-bajo
+              }
+              // Se retorna el estilo para cada celda del GeoJSON, con el color de relleno asignado 
+              // y una opacidad para que se vea el mapa base debajo
+              return {
+                color: fillColor,
+                weight: 0.2,
+                fillColor: fillColor,
+                fillOpacity: 0.45
+              }
+            }}
             />
           )}
           {/* Marcadores para las estaciones existentes */}
@@ -547,6 +567,19 @@ function App() {
             </Marker>
           ))}
         </MapContainer>
+        {/* Leyenda de la capa de raster */}
+        {showRasterLayer && response?.raster?.geojson && (
+          <div style={{ marginTop: "10px", textAlign: "center" }}>
+            <h4>Escala de colores</h4>
+          <div>
+            <span style={{ color: "#2c7bb6", frontWeight: "bold"}}>■</span> Bajo&nbsp;&nbsp;
+            <span style={{ color: "#a6d96a", frontWeight: "bold"}}>■</span> Medio-bajo&nbsp;&nbsp;
+            <span style={{ color: "#ffffbf", frontWeight: "bold"}}>■</span> Medio&nbsp;&nbsp;
+            <span style={{ color: "#fdae61", frontWeight: "bold"}}>■</span> Medio-alto&nbsp;&nbsp;
+            <span style={{ color: "#d7191c", frontWeight: "bold"}}>■</span> Alto
+          </div>
+        </div>
+        )}
       </div>
     </div>
   )

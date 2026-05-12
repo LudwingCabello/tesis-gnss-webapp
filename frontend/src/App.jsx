@@ -43,6 +43,7 @@ function App() {
   const [showNewStations, setShowNewStations] = useState(true)
   const [showBaseMap, setShowBaseMap] = useState(true)
   const [showRasterLayer, setShowRasterLayer] = useState(true)  
+  const [tooltipSolution, setTooltipSolution] = useState(null) 
 
   // Se obtiene el catálogo de algoritmos disponibles al cargar la aplicación
   useEffect(() => {
@@ -147,6 +148,18 @@ function App() {
     domain: [0, 1],
     range: [chartHeight - margin.bottom, margin.top]
   })
+
+  {/* Posición tooltip */}
+  const tooltipX = tooltipSolution
+    ? xScale(tooltipSolution.objective_1)
+    : 0
+
+  const tooltipY = tooltipSolution
+    ? yScale(tooltipSolution.objective_2)
+    : 0
+
+  const adjustedTooltipY =
+    tooltipY < 90 ? tooltipY + 20 : tooltipY - 70
 
   return (
     <div style={{ padding: "20px" }}>
@@ -340,6 +353,8 @@ function App() {
                     style={{ cursor: "pointer" }}
                     /* Se guarda la solución seleccionada */
                     onClick={() => setSelectedSolution(solution)}
+                    onMouseEnter={() => setTooltipSolution(solution)}
+                    onMouseLeave={() => setTooltipSolution(null)}
                   />
                   {/* Etiqueta para el punto */}
                   <text
@@ -352,6 +367,60 @@ function App() {
                   </text>
                 </g>
               ))}
+              
+              {/* Tooltip */}
+              {tooltipSolution && (
+                <g>
+                  <rect
+                    // Posición del tooltip, ajustada para que no quede encima del punto
+                    x={tooltipX + 12}
+                    y={adjustedTooltipY}
+                    // Dimensiones del tooltip
+                    width={190}
+                    height={90}
+                    fill="white"
+                    stroke="black"
+                    rx={6}
+                  />
+
+                  <text
+                  // Posición del texto dentro del tooltip, ajustada para que quede dentro del rectángulo
+                    x={tooltipX + 22}
+                    y={adjustedTooltipY + 20}
+                    fill="black"
+                    fontSize={12}
+                  >
+                    Solución: {tooltipSolution.id}
+                  </text>
+
+                  <text
+                    x={tooltipX + 22}
+                    y={adjustedTooltipY + 38}
+                    fill="black"
+                    fontSize={12}
+                  >
+                    Homogeneidad: {tooltipSolution.objective_1}
+                  </text>
+
+                  <text
+                    x={tooltipX + 22}
+                    y={adjustedTooltipY + 56}
+                    fill="black"
+                    fontSize={12}
+                  >
+                    Variabilidad: {tooltipSolution.objective_2}
+                  </text>
+
+                  <text
+                    x={tooltipX + 22}
+                    y={adjustedTooltipY + 74}
+                    fill="black"
+                    fontSize={12}
+                  >
+                    Frente: {tooltipSolution.pareto_front}
+                  </text>
+                </g>
+              )}
             </Group>
           </svg>
         </div>

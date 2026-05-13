@@ -488,7 +488,7 @@ function App() {
 
       <h2>Mapa base</h2>
       {/* Caja contenedora del mapa */}
-      <div style={{ height: "500px", marginTop: "20px" }}>
+      <div style={{ height: "500px", marginTop: "20px", position: "relative" }}>
         {/* Centro inicial del mapa, zoom inicial y cuanto ocupa de la caja */}
         <MapContainer
           center={[-30.0, -71.0]}
@@ -569,15 +569,26 @@ function App() {
         </MapContainer>
         {/* Leyenda de la capa de raster */}
         {showRasterLayer && response?.raster?.geojson && (
-          <div style={{ marginTop: "10px", textAlign: "center" }}>
-            <h4>Escala de colores</h4>
-          <div>
+          <div 
+            style={{ 
+              position: "absolute",
+              bottom: "20px",
+              right: "20px",
+              zIndex: 1000,
+              background: "white",
+              padding: "10px",
+              borderRdius: "8px",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
+              color: "black",
+              fronSize: "14px",
+              }}
+            >
+            <strong>Escala de colores</strong>
             <span style={{ color: "#2c7bb6", frontWeight: "bold"}}>■</span> Bajo&nbsp;&nbsp;
             <span style={{ color: "#a6d96a", frontWeight: "bold"}}>■</span> Medio-bajo&nbsp;&nbsp;
             <span style={{ color: "#ffffbf", frontWeight: "bold"}}>■</span> Medio&nbsp;&nbsp;
             <span style={{ color: "#fdae61", frontWeight: "bold"}}>■</span> Medio-alto&nbsp;&nbsp;
             <span style={{ color: "#d7191c", frontWeight: "bold"}}>■</span> Alto
-          </div>
         </div>
         )}
       </div>

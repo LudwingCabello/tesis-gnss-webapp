@@ -441,54 +441,69 @@ function App() {
           </button>
         </div>
       )}
-
-      <div style={{ marginBottom: "10px" }}>
-        <h3>Capas del mapa</h3>
-
-        <label>
-          <input
-            type="checkbox"
-            checked={showBaseMap}
-            onChange={(e) => setShowBaseMap(e.target.checked)}
-          />
-          Mapa base
-        </label>
-
-        <br />
-
-        <label>
-          <input
-            type="checkbox"
-            checked={showExistingStations}
-            onChange={(e) => setShowExistingStations(e.target.checked)}
-          />
-          Estaciones existentes
-        </label>
-
-        <br />
-
-        <label>
-          <input
-            type="checkbox"
-            checked={showNewStations}
-            onChange={(e) => setShowNewStations(e.target.checked)}
-          />
-          Estaciones nuevas
-        </label>
-
-        <label>
-          <input
-            type="checkbox"
-            checked={showRasterLayer}
-            onChange={(e) => setShowRasterLayer(e.target.checked)}
-          />
-          Raster / GeoJSON
-        </label>
-      </div>
-
       <h2>Mapa base</h2>
       {/* Caja contenedora del mapa */}
-      <div style={{ height: "500px", marginTop: "20px", position: "relative" }}>
+      <div style={{ height: "600px", width: "100%", position: "relative" }}>
+        {response && (
+          <div
+            style={{
+              position: "absolute",
+              top: "10px",
+              right: "10px",
+              zIndex: 1000,
+              backgroundColor: "rgba(255,255,255,0.95)",
+              padding: "10px",
+              borderRadius: "8px",
+              boxShadow: "0 2px 6px rgba(0,0,0,0.3)",
+              color: "black",
+              minWidth: "180px"
+            }}
+          >
+            <h4 style={{ marginTop: 0 }}>Capas</h4>
+
+            <label>
+              <input
+                type="checkbox"
+                checked={showBaseMap}
+                onChange={() => setShowBaseMap(!showBaseMap)}
+              />
+              Mapa base
+            </label>
+
+            <br />
+
+            <label>
+              <input
+                type="checkbox"
+                checked={showExistingStations}
+                onChange={() => setShowExistingStations(!showExistingStations)}
+              />
+              Estaciones existentes
+            </label>
+
+            <br />
+
+            <label>
+              <input
+                type="checkbox"
+                checked={showNewStations}
+                onChange={() => setShowNewStations(!showNewStations)}
+              />
+              Estaciones nuevas
+            </label>
+
+            <br />
+
+            <label>
+              <input
+                type="checkbox"
+                checked={showRasterLayer}
+                onChange={() => setShowRasterLayer(!showRasterLayer)}
+              />
+              Raster / GeoJSON
+            </label>
+          </div>
+        )}
         {/* Centro inicial del mapa, zoom inicial y cuanto ocupa de la caja */}
         <MapContainer
           center={[-30.0, -71.0]}

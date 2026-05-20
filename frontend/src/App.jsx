@@ -44,6 +44,7 @@ function App() {
   const [showBaseMap, setShowBaseMap] = useState(true)
   const [showRasterLayer, setShowRasterLayer] = useState(true)  
   const [tooltipSolution, setTooltipSolution] = useState(null) 
+  const [visibleFronts, setVisibleFronts] = useState({})
 
   // Se obtiene el catálogo de algoritmos disponibles al cargar la aplicación
   useEffect(() => {
@@ -132,16 +133,36 @@ function App() {
   }
 
   // Dimensiones y márgenes para la visualización de soluciones
-  const chartWidth = 700
+  const chartWidth = 850
+  const plotWidth = 700
   const chartHeight = 400
   const margin = { top: 20, right: 30, bottom: 50, left: 60 }
   // Se extraen las soluciones de la respuesta, o se asigna lista vacía si no hay respuesta
   const solutions = response?.solutions || []
 
+  // Se obtiene la lista de frentes de pareto disponibles en las soluciones para mostrar opciones de filtrado
+  const availableFronts = [
+    ...new Set(solutions.map((solution) => solution.pareto_front))
+  ].sort((a, b) => a - b)
+
+  // Se filtran las soluciones según los frentes de pareto visibles, utilizando el estado visibleFronts para determinar qué frentes mostrar
+  const filteredSolutions = solutions.filter((solution) => {
+    return visibleFronts[solution.pareto_front] !== false
+  })
+
+  // Función para alternar la visibilidad de un frente de pareto específico, 
+  // actualizando el estado visibleFronts para mostrar u ocultar las soluciones correspondientes
+  const toggleFront = (front) => {
+    setVisibleFronts((prev) => ({
+      ...prev,
+      [front]: prev[front] === false ? true : false
+    }))
+  }
+
   // Convertir valores de datos a posiciones en pantalla usando escalas lineales
   const xScale = scaleLinear({
     domain: [0, 1],
-    range: [margin.left, chartWidth - margin.right]
+    range: [margin.left, plotWidth - margin.right]
   })
 
   const yScale = scaleLinear({
@@ -313,16 +334,54 @@ function App() {
       {response && (
         <div style={{ marginTop: "30px" }}>
           <h2>Frontera de Pareto</h2>
-          {/* Se muestra al usario significado de cada color */}
-          <div style={{ marginBottom: "10px "}}>
-            <p><span style={{ color: "red", fontWeight: "bold" }}>●</span> Frente 0</p>
-            <p><span style={{ color: "blue", fontWeight: "bold" }}>●</span> Frente 1</p>
-            <p><span style={{ color: "green", fontWeight: "bold" }}>●</span> Frente 2</p>
-            <p><span style={{ color: "purple", fontWeight: "bold" }}>●</span> Frente 3</p>
-            <p><span style={{ color: "yellow", fontWeight: "bold" }}>●</span> Frente 4</p>
-          </div>
           {/* Se crea el gráfico SVG para la frontera de Pareto */}
           <svg width={chartWidth} height={chartHeight} style={{ background: "white" }}>
+            <foreignObject x={plotWidth + 10} y={40} width={130} height={180}>
+              <div
+                style={{
+                  background: "rgba(255,255,255,0.95)",
+                  border: "1px solid #999",
+                  borderRadius: "8px",
+                  padding: "8px",
+                  color: "black",
+                  fontSize: "13px",
+                  maxHeight: "145px",
+                  overflowY: "auto"
+                }}
+              >
+                <strong>Frentes</strong>
+
+                {availableFronts.map((front) => (
+                  <label
+                    key={front}
+                    style={{
+                      display: "block",
+                      marginTop: "6px",
+                      cursor: "pointer",
+                      whiteSpace: "nowrap"
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={visibleFronts[front] !== false}
+                      onChange={() => toggleFront(front)}
+                    />
+
+                    <span
+                      style={{
+                        color: getFrontColor(front),
+                        fontWeight: "bold",
+                        marginLeft: "6px"
+                      }}
+                    >
+                      ●
+                    </span>
+
+                    {" "}Frente {front}
+                  </label>
+                ))}
+              </div>
+            </foreignObject>
             {/* Eje X */}
             <AxisBottom
               top={chartHeight - margin.bottom}
@@ -338,7 +397,7 @@ function App() {
 
             <Group>
               {/* Se recorren las soluciones para dibujar los puntos en el gráfico */}
-              {solutions.map((solution) => (
+              {filteredSolutions.map((solution) => (
                 <g key={solution.id}>
                   {/* Punto en el gráfico */}
                   <Circle

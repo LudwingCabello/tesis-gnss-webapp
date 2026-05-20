@@ -14,9 +14,32 @@ const getFrontColor = (front) => {
   if (front == 1) return "#1d4ed8"
   if (front == 2) return "#2a9d8f"
   if (front == 3) return "#9c0ecb"
-  if (front == 4) return "#dde751"
+  if (front == 4) return "#eb7310"
+  if (front == 5) return "#364725"
+  if (front == 6) return "rgb(252, 64, 208)"
+  if (front == 7) return "#a41623"
+  if (front == 8) return "#457b9d"
+  if (front == 9) return "#ffb703"
+  if (front == 10) return "#8ecae6"
   return "gray"
 }
+
+// Icono personalizado para las estaciones nuevas, utilizando un triángulo invertido de color azul
+const triangleIcon = L.divIcon({
+  className: "triangle-marker",
+  html: `
+    <div style="
+      width: 0;
+      height: 0;
+      border-left: 8px solid transparent;
+      border-right: 8px solid transparent;
+      border-bottom: 16px solid #1d4ed8;
+    "></div>
+  `,
+  iconSize: [16, 16],
+  iconAnchor: [8, 16],
+  popupAnchor: [0, -16]
+})
 
 const redIcon = new L.Icon({
   iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png",
@@ -292,26 +315,7 @@ function App() {
           {/* Estaciones */}
           <h3>Estaciones</h3>
           <p>Total: {response.stations.total}</p>
-
-          <p>Columnas:</p>
-          <ul>
-            {response.stations.columns.map((col, index) =>(
-              <li key={index}>{col}</li>
-            ))}
-          </ul>
-
-          {/* Soluciones */}
-          <h3>Soluciones</h3>
-          {response.solutions.map((sol) => (
-            <div key={sol.id} style={{marginBottom: "10px" }}>
-              <p>ID: {sol.id}</p>
-              <p>Objetivo 1: {sol.objective_1}</p>
-              <p>Objetivo 2: {sol.objective_2}</p>
-              <p>Frente de Pareto: {sol.pareto_front}</p>
-              <p>Estaciones generadas: {sol.new_stations.length}</p>
-              </div>
-          ))}
-
+          
         </div>
       )}
       
@@ -336,6 +340,8 @@ function App() {
           <h2>Frontera de Pareto</h2>
           {/* Se crea el gráfico SVG para la frontera de Pareto */}
           <svg width={chartWidth} height={chartHeight} style={{ background: "white" }}>
+            {/* Controles para los frentes de Pareto */}
+            {/* Posición y tamaño del panel de controles */}
             <foreignObject x={plotWidth + 10} y={40} width={130} height={180}>
               <div
                 style={{
@@ -350,7 +356,7 @@ function App() {
                 }}
               >
                 <strong>Frentes</strong>
-
+                {/* Recorre todos los frentes existentes y contenedor visual */}
                 {availableFronts.map((front) => (
                   <label
                     key={front}
@@ -611,6 +617,7 @@ function App() {
             <Marker
               key={`existing-${index}`}
               position={[station.latitude, station.longitude]}
+              icon={triangleIcon}
             >
               <Popup>
                 <div>

@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react"
-import { MapContainer, TileLayer, Marker, Popup , CircleMarker, GeoJSON } from "react-leaflet"
+import { MapContainer, TileLayer, Marker, Popup , CircleMarker, GeoJSON, LayersControl, LayerGroup } from "react-leaflet"
 import "leaflet/dist/leaflet.css"
 import { Group } from "@visx/group"
 import { Circle } from "@visx/shape"
@@ -40,6 +40,14 @@ const triangleIcon = L.divIcon({
   iconAnchor: [8, 16],
   popupAnchor: [0, -16]
 })
+
+const getRasterColor = (value) => {
+  if (value >= 2.0) return "#d7191c"
+  if (value >= 1.5) return "#fdae61"
+  if (value >= 1.0) return "#ffffbf"
+  if (value >= 0.5) return "#abd9e9"
+  return "#2c7bb6"
+}
 
 const redIcon = new L.Icon({
   iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png",
@@ -315,7 +323,7 @@ function App() {
           {/* Estaciones */}
           <h3>Estaciones</h3>
           <p>Total: {response.stations.total}</p>
-          
+
         </div>
       )}
       
@@ -509,144 +517,84 @@ function App() {
       <h2>Mapa base</h2>
       {/* Caja contenedora del mapa */}
       <div style={{ height: "600px", width: "100%", position: "relative" }}>
-        {response && (
-          <div
-            style={{
-              position: "absolute",
-              top: "10px",
-              right: "10px",
-              zIndex: 1000,
-              backgroundColor: "rgba(255,255,255,0.95)",
-              padding: "10px",
-              borderRadius: "8px",
-              boxShadow: "0 2px 6px rgba(0,0,0,0.3)",
-              color: "black",
-              minWidth: "180px"
-            }}
-          >
-            <h4 style={{ marginTop: 0 }}>Capas</h4>
-
-            <label>
-              <input
-                type="checkbox"
-                checked={showBaseMap}
-                onChange={() => setShowBaseMap(!showBaseMap)}
-              />
-              Mapa base
-            </label>
-
-            <br />
-
-            <label>
-              <input
-                type="checkbox"
-                checked={showExistingStations}
-                onChange={() => setShowExistingStations(!showExistingStations)}
-              />
-              Estaciones existentes
-            </label>
-
-            <br />
-
-            <label>
-              <input
-                type="checkbox"
-                checked={showNewStations}
-                onChange={() => setShowNewStations(!showNewStations)}
-              />
-              Estaciones nuevas
-            </label>
-
-            <br />
-
-            <label>
-              <input
-                type="checkbox"
-                checked={showRasterLayer}
-                onChange={() => setShowRasterLayer(!showRasterLayer)}
-              />
-              Raster / GeoJSON
-            </label>
-          </div>
-        )}
         {/* Centro inicial del mapa, zoom inicial y cuanto ocupa de la caja */}
         <MapContainer
           center={[-30.0, -71.0]}
           zoom={4}
           style={{ height: "100%", width: "100%" }}
         >
-          {showBaseMap && (
-            <TileLayer
-              attribution='&copy; OpenStreetMap contributors'
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
-          )}
-          {/* Capa de raster / GeoJSON */}
-          {showRasterLayer && response?.raster?.geojson && (
-            <GeoJSON
-              data={response.raster.geojson}
-              // Se asignan colores a cada celca del GeoJSON según el valor de la propiedad valor_centroide,
-              //  utilizando una escala de colores de bajo a alto
-              style={(feature) => {
-                const value = feature.properties.valor_centroide
+          <LayersControl position="topright">
+              <LayersControl.BaseLayer checked name="Mapa base">
+                <TileLayer
+                  attribution='&copy; OpenStreetMap contributors'
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                />
+              </LayersControl.BaseLayer>
+            {/* Capa de raster / GeoJSON */}
+            <LayersControl.Overlay checked name="Raster / GeoJSON">
+              <LayerGroup>
+                {response?.raster?.geojson && (
+                  <GeoJSON
+                    data={response.raster.geojson}
+                    style={(feature) => {
+                      const value = feature.properties.valor_centroide
+                      const fillColor = getRasterColor(value)
 
-                let fillColor = "#2c7bb6" // bajo
-
-                if (value >=2.0){
-                  fillColor = "#d7191c" // alto
-                } else if (value >=1.5){
-                  fillColor = "#fdae61" // medio-alto
-                } else if (value >=1.0){
-                  fillColor = "#ffffbf" // medio
-                } else if (value >=0.5){
-                  fillColor = "#a6d96a" // medio-bajo
-              }
-              // Se retorna el estilo para cada celda del GeoJSON, con el color de relleno asignado 
-              // y una opacidad para que se vea el mapa base debajo
-              return {
-                color: fillColor,
-                weight: 0.2,
-                fillColor: fillColor,
-                fillOpacity: 0.45
-              }
-            }}
-            />
-          )}
-          {/* Marcadores para las estaciones existentes */}
-          {showExistingStations && response && response.stations.items.map((station, index) => (
-            <Marker
-              key={`existing-${index}`}
-              position={[station.latitude, station.longitude]}
-              icon={triangleIcon}
-            >
-              <Popup>
-                <div>
-                  <p><strong>Estación existente:</strong> {station.station}</p>
-                  <p><strong>ID:</strong> {station.id}</p>
-                  <p><strong>Latitud:</strong> {station.latitude}</p>
-                  <p><strong>Longitud:</strong> {station.longitude}</p>
-                </div>
-              </Popup>
-            </Marker>
-          ))}
-          {/* Marcadores para las nuevas estaciones, recorriendo las estaciones de la solución seleccionada */}
-          {showNewStations && selectedSolution && selectedSolution.new_stations.map((station, index) => (
-            <Marker
-              key={`new-${selectedSolution.id}-${index}`}
-              position={[station.latitude, station.longitude]}
-              icon={redIcon}
-            >
-              <Popup>
-                <div>
-                  <p><strong>Solución:</strong> {selectedSolution.id}</p>
-                  <p><strong>Nueva estación:</strong></p>
-                  <p><strong>ID:</strong> {station.id}</p>
-                  <p><strong>Latitud:</strong> {station.latitude}</p>
-                  <p><strong>Longitud:</strong> {station.longitude}</p>
-                </div>
-              </Popup>
-            </Marker>
-          ))}
+                      return {
+                        color: fillColor,
+                        weight: 0.2,
+                        fillColor: fillColor,
+                        fillOpacity: 0.45
+                      }
+                    }}
+                  />
+                )}
+              </LayerGroup>
+            </LayersControl.Overlay>
+            {/* Marcadores para las estaciones existentes */}
+            <LayersControl.Overlay checked name="Estaciones existentes">
+              <LayerGroup>
+                {response &&
+                  response.stations.items.map((station, index) => (
+                    <Marker
+                      key={`existing-${index}`}
+                      position={[station.latitude, station.longitude]}
+                      icon={triangleIcon}
+                    >
+                      <Popup>
+                        <div>
+                          <p><strong>ID:</strong> {station.id}</p>
+                          <p><strong>Latitud:</strong> {station.latitude}</p>
+                          <p><strong>Longitud:</strong> {station.longitude}</p>
+                        </div>
+                      </Popup>
+                    </Marker>
+                  ))}
+              </LayerGroup>
+            </LayersControl.Overlay>
+            {/* Marcadores para las nuevas estaciones, recorriendo las estaciones de la solución seleccionada */}
+            <LayersControl.Overlay checked name="Estaciones nuevas">
+              <LayerGroup>
+                {selectedSolution &&
+                  selectedSolution.new_stations.map((station, index) => (
+                    <Marker
+                      key={`new-${selectedSolution.id}-${index}`}
+                      position={[station.latitude, station.longitude]}
+                      icon={redIcon}
+                    >
+                      <Popup>
+                        <div>
+                          <p><strong>Solución:</strong> {selectedSolution.id}</p>
+                          <p><strong>ID:</strong> {station.id}</p>
+                          <p><strong>Latitud:</strong> {station.latitude}</p>
+                          <p><strong>Longitud:</strong> {station.longitude}</p>
+                        </div>
+                      </Popup>
+                    </Marker>
+                  ))}
+              </LayerGroup>
+            </LayersControl.Overlay>
+          </LayersControl>
         </MapContainer>
         {/* Leyenda de la capa de raster */}
         {showRasterLayer && response?.raster?.geojson && (

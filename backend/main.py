@@ -5,6 +5,7 @@ import json
 import random
 import csv 
 import io
+import time
 
 app = FastAPI()
 
@@ -191,32 +192,6 @@ async def get_algorithms():
         "algorithms": ALGORITHM_CATALOG
     }
 
-# Función para asegurar una subida de archivos correcta y con el formato esperado para el funcionamiento del sistema   
-def validate_uploaded_files(raster_file: UploadFile, stations_file: UploadFile):
-    
-    if not raster_file.filename:
-        raise HTTPException(
-            status_code=400,
-            detail="Debe subir un archivo raster"
-        )
-    
-    if not stations_file.filename:
-        raise HTTPException(
-            status_code=400,
-            detail="Debe subir un archivo de estaciones"
-        )
-    
-    if not raster_file.filename.endswith(".geojson"):
-        raise HTTPException(
-            status_code=400,
-            detail="El archivo raster debe tener extensión .geojson"
-        )
-    
-    if not stations_file.filename.endswith(".csv"):
-        raise HTTPException(
-            status_code=400,
-            detail="El archivo de estaciones debe tener extensión .csv"
-        )
 
 # Función para generar estaciones nuevas dummy cercanas a las estaciones existentes
 def generate_dummy_new_stations(n_stations: int, base_station: list):
@@ -285,6 +260,75 @@ def pareto_fronts(solutions):
         front_number += 1   
     
     return solutions
+
+def process_stations_csv(stations_content: bytes):
+    stations_decoded = stations_content.decode("utf-8")
+    stations_reader = csv.DictReader(io.StringIO(stations_decoded))
+    stations = list(stations_reader)
+
+    if not stations:
+        raise HTTPException(
+            status_code=400,
+            detail="El archivo de estaciones está vacío"
+        )
+
+    required_columns = {"STATION", "LATITUDE", "LONGITUDE", "ID"}
+    file_columns = set(stations[0].keys())
+
+    if not required_columns.issubset(file_columns):
+        raise HTTPException(
+            status_code=400,
+            detail=f"El archivo de estaciones debe contener las columnas: {required_columns}"
+        )
+
+    stations_for_map = []
+
+    for station in stations:
+        try:
+            stations_for_map.append({
+                "id": station["ID"],
+                "station": station["STATION"],
+                "latitude": float(station["LATITUDE"]),
+                "longitude": float(station["LONGITUDE"])
+            })
+        except (ValueError, KeyError):
+            continue
+
+    return stations_for_map
+
+def validate_positive_integer(value: int, error_message: str):
+    if value <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail=error_message
+        )
+
+# Función para asegurar una subida de archivos correcta y con el formato esperado para el funcionamiento del sistema   
+def validate_uploaded_files(raster_file: UploadFile, stations_file: UploadFile):
+    
+    if not raster_file.filename:
+        raise HTTPException(
+            status_code=400,
+            detail="Debe subir un archivo raster"
+        )
+    
+    if not stations_file.filename:
+        raise HTTPException(
+            status_code=400,
+            detail="Debe subir un archivo de estaciones"
+        )
+    
+    if not raster_file.filename.endswith(".geojson"):
+        raise HTTPException(
+            status_code=400,
+            detail="El archivo raster debe tener extensión .geojson"
+        )
+    
+    if not stations_file.filename.endswith(".csv"):
+        raise HTTPException(
+            status_code=400,
+            detail="El archivo de estaciones debe tener extensión .csv"
+        )
 
 # Función para validar que la estructura de las soluciones generadas sea correcta 
 # y contenga los campos necesarios para el funcionamiento del sistema          
@@ -437,77 +481,39 @@ async def create_escenario(
     algorithm: str = Form(...),
     algorithm_params: str = Form("{}")
 ):   
+    start_total = time.perf_counter()
+    performance = {}
+
     try: 
-        
         # Se valida que los archivos subidos sean correctos y tengan el formato esperado
         validate_uploaded_files(raster_file, stations_file)
 
-        # Validar que el numero de nuevas estaciones sea mayor que 0
-        if n_stations <= 0:
-            raise HTTPException(
-                status_code=400,
-                detail= "El número de estaciones debe ser mayor que cero"
-            )
-        # Validar que el número de soluciones sea mayor que 0
-        if n_solutions <= 0:
-            raise HTTPException(
-                status_code=400,
-                detail= "El número de soluciones debe ser mayor que cero"
-            )
-        
+        # Validar que el número de nuevas estaciones y soluciones sea mayor que 0
+        validate_positive_integer(n_stations, "El número de estaciones debe ser mayor que 0")
+        validate_positive_integer(n_solutions, "El número de soluciones debe ser mayor que 0")
+
         # ---------- Procesar raster ----------
         # Lee el contenido del archivo raster, lo decodifica y lo convierte a JSON
+        start_raster = time.perf_counter()
         raster_content = await raster_file.read()
         raster_data = json.loads(raster_content)
         
         raster_features = raster_data.get("features", [])
         raster_type = raster_data.get("type", "Desconocido")
         raster_has_crs = raster_data.get("crs") is not None
+        performance["raster_processing_seconds"] = round(time.perf_counter() - start_raster, 4)
+        # ----------- Procesar estaciones -----------
+        # Lee el contenido del archivo de estaciones y lo procesa con una función reutilizable
 
-        # ---------- Procesar estaciones ----------
-        # Lee el contenido del archivo de estaciones, lo decodifica y lo convierte a una lista de diccionarios
         stations_content = await stations_file.read()
-        stations_decoded = stations_content.decode("utf-8")
-        stations_reader = csv.DictReader(io.StringIO(stations_decoded))
-        stations = list(stations_reader)
-
-        # Valida que existan estaciones en el archivo
-        if not stations:
-            raise HTTPException(
-                status_code=400,
-                detail="El archivo de estaciones está vacío"
-            )
-        
-        # Valida que archivo contenga datos de utilidad para el sistema
-        required_columns = {"STATION", "LATITUDE", "LONGITUDE", "ID"}
-        file_columns = set(stations[0].keys())
-        # Valida que el archivo contenga las columnas necesarias para el funcionamiento del sistema
-        if not required_columns.issubset(file_columns):
-            raise HTTPException(
-                status_code=400,
-                detail=f"El archivo de estaciones debe contener las columnas: {required_columns}"
-            )
-        
-        # Se crea lista para almacenar estaciones existentes con formato adecuado para el mapa
-        stations_for_map = []
-        for station in stations:
-            try:
-                # Se van agregando las estaciones a la lista
-                stations_for_map.append({
-                    "id": station["ID"],
-                    "station": station["STATION"],
-                    # Se convierten las coordenadas a float para que puedan ser usadas en el mapa
-                    "latitude": float(station["LATITUDE"]),
-                    "longitude": float(station["LONGITUDE"])
-                })
-            except (ValueError, KeyError):
-                continue
+        stations_for_map = process_stations_csv(stations_content)
 
         # Se construye una lista de soluciones dummy 
         solutions = []
         # Se elige una estación base aleatoria de la lista de estaciones para generar las nuevas estaciones cercanas a ella
         base_sstation = random.choice(stations_for_map)
         # Se genera la cantidad de soluciones indicada por el usuario
+        
         for i in range(n_solutions):
             solution = {
                 "id": i + 1,
@@ -519,6 +525,7 @@ async def create_escenario(
             }
             solutions.append(solution)
         
+
         # Se asignan los frentes de pareto a las soluciones generadas
         solutions = pareto_fronts(solutions)
 
@@ -529,7 +536,7 @@ async def create_escenario(
         # Se valida que el algoritmo seleccionado exista en el catálogo y
         #  que los parámetros enviados sean correctos, tengan el formato esperado y cumplan con las restricciones definidas en el catálogo de algoritmos
         selected_algorithm, validated_algorithm_params = validate_algorithm_params(algorithm, algorithm_params)
-        
+        print("PERFORMANCE:", performance)
         #---------- Respuesta estructurada----------
         return {
             "status": "success",
@@ -549,12 +556,10 @@ async def create_escenario(
                 "geojson": raster_data
             },
             "stations": {
-                "total": len(stations),
-                "columns": list(file_columns),
-                "sample_station": stations[0],
+                "total": len(stations_for_map),
                 "items" : stations_for_map
             },
-            "solutions": solutions
+            "solutions": solutions,
         }
     
     # Manejo de errores especificos para cada tipo de problema

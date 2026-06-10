@@ -144,6 +144,9 @@ function App() {
     formData.append("algorithm_params", JSON.stringify(algorithmParams))
     // Envío de datos al endpoint scenario del backend
     try {
+
+      const startRequest = performance.now()
+
       const res = await fetch("http://localhost:8000/scenario", {
         method: "POST",
         body: formData
@@ -155,6 +158,14 @@ function App() {
         setErrorMessage(data.detail || "Ocurrió un error al procesar el escenario")
         return
       }
+
+      const endRequest = performance.now()
+      console.log(
+        "Tiempo total frontend request:",
+        ((endRequest - startRequest) / 1000).toFixed(4),
+        "segundos"
+      )
+      console.log("Performance backend:", data.performance)
       // Si la respuesta es ok, se guarda la respuesta en el estado para mostrarla al usuario
       setResponse(data)
 
@@ -324,6 +335,18 @@ function App() {
           <h3>Estaciones</h3>
           <p>Total: {response.stations.total}</p>
 
+        </div>
+      )}
+
+      {response?.performance && (
+        <div>
+          <h3>Rendimiento</h3>
+          <p>Backend total: {response.performance.total_backend_seconds} s</p>
+          <p>Validación archivos: {response.performance.file_validation_seconds} s</p>
+          <p>Procesamiento raster: {response.performance.raster_processing_seconds} s</p>
+          <p>Procesamiento CSV: {response.performance.csv_processing_seconds} s</p>
+          <p>Generación soluciones: {response.performance.solution_generation_seconds} s</p>
+          <p>Clasificación Pareto: {response.performance.pareto_classification_seconds} s</p>
         </div>
       )}
       

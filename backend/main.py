@@ -194,7 +194,7 @@ async def get_algorithms():
 
 
 # Función para generar estaciones nuevas dummy cercanas a las estaciones existentes
-def generate_dummy_new_stations(n_stations: int, base_station: list):
+def generate_dummy_new_stations(n_stations: int, base_station: dict):
     new_stations = []
 
     # Se toma la latitud y longitud de la estación base para generar coordenadas cercanas
@@ -211,6 +211,29 @@ def generate_dummy_new_stations(n_stations: int, base_station: list):
         new_stations.append(new_station)
 
     return new_stations
+
+# Función para generar soluciones dummy con objetivos aleatorios y 
+# estaciones nuevas generadas a partir de una estación base seleccionada aleatoriamente
+def generate_dummy_solutions(n_solutions: int, n_stations: int, stations_for_map: list):
+    # Se crea una lista vacía para almacenar las soluciones generadas
+    solutions = []
+    # Se selecciona una estación base de manera aleatoria
+    base_station = random.choice(stations_for_map)
+
+    # Se generan soluciones con objetivos aleatorios y estaciones nuevas generadas a partir de la estación base seleccionada
+    for i in range(n_solutions):
+        solution = {
+            "id": i + 1,
+            # Se generan valores aleatorios para los objetivos, redondeados a 3 decimales para mayor realismo
+            "objective_1": round(random.uniform(0.2, 1.0), 3),
+            "objective_2": round(random.uniform(0.2, 1.0), 3),
+            "new_stations": generate_dummy_new_stations(n_stations, base_station)
+        }
+        solutions.append(solution)
+    # Se asignan los frentes de pareto a las soluciones generadas para simular un resultado más realista de un algoritmo multiobjetivo
+    solutions = pareto_fronts(solutions)
+
+    return solutions
 
 
 # Funcion para determinar si una solución domina a otra 
@@ -261,7 +284,9 @@ def pareto_fronts(solutions):
     
     return solutions
 
+
 def process_stations_csv(stations_content: bytes):
+    # Convierte bytes a texto y luego a una lista de diccionarios
     stations_decoded = stations_content.decode("utf-8")
     stations_reader = csv.DictReader(io.StringIO(stations_decoded))
     stations = list(stations_reader)
@@ -296,6 +321,36 @@ def process_stations_csv(stations_content: bytes):
 
     return stations_for_map
 
+# Función para procesar el archivo raster en formato GeoJSON, validando su estructura y 
+# extrayendo información relevante para el funcionamiento del sistema
+def process_raster_geojson(raster_content: bytes):
+    raster_data = json.loads(raster_content)
+
+    raster_features = raster_data.get("features", [])
+    raster_type = raster_data.get("type", "Desconocido")
+    raster_has_crs = raster_data.get("crs") is not None
+
+    if raster_type != "FeatureCollection":
+        raise HTTPException(
+            status_code=400,
+            detail="El archivo raster debe ser un GeoJSON de tipo FeatureCollection"
+        )
+    
+    if not raster_features:
+        raise HTTPException(
+            status_code=400,
+            detail="El archivo raster no contiene features"
+        )       
+    
+    return {
+        "geojson_type": raster_type,
+        "features_count": len(raster_features),
+        "has_crs": raster_has_crs,
+        "geojson": raster_data
+    }
+
+# Función para validar que un valor entero sea positivo, con un mensaje de error 
+# personalizado en caso de que no se cumpla esta condición
 def validate_positive_integer(value: int, error_message: str):
     if value <= 0:
         raise HTTPException(
@@ -494,40 +549,20 @@ async def create_escenario(
 
         # ---------- Procesar raster ----------
         # Lee el contenido del archivo raster, lo decodifica y lo convierte a JSON
-        start_raster = time.perf_counter()
         raster_content = await raster_file.read()
-        raster_data = json.loads(raster_content)
-        
-        raster_features = raster_data.get("features", [])
-        raster_type = raster_data.get("type", "Desconocido")
-        raster_has_crs = raster_data.get("crs") is not None
-        performance["raster_processing_seconds"] = round(time.perf_counter() - start_raster, 4)
+        raster_response = process_raster_geojson(raster_content)
+
         # ----------- Procesar estaciones -----------
         # Lee el contenido del archivo de estaciones y lo procesa con una función reutilizable
-
         stations_content = await stations_file.read()
         stations_for_map = process_stations_csv(stations_content)
 
-        # Se construye una lista de soluciones dummy 
-        solutions = []
-        # Se elige una estación base aleatoria de la lista de estaciones para generar las nuevas estaciones cercanas a ella
-        base_sstation = random.choice(stations_for_map)
-        # Se genera la cantidad de soluciones indicada por el usuario
-        
-        for i in range(n_solutions):
-            solution = {
-                "id": i + 1,
-                # Se generan valores aleatorios entre 0.2 y 1.0 para los objetivos, redondeados a 3 decimales
-                "objective_1": round(random.uniform(0.2, 1.0), 3),
-                "objective_2": round(random.uniform(0.2, 1.0), 3),
-                # Frontera de pareto asignada aleatoriamente entre 0 y 2 
-                "new_stations": generate_dummy_new_stations(n_stations, base_sstation)
-            }
-            solutions.append(solution)
-        
-
-        # Se asignan los frentes de pareto a las soluciones generadas
-        solutions = pareto_fronts(solutions)
+        # ----------- Generar soluciones -----------
+        solutions = generate_dummy_solutions(
+            n_solutions, 
+            n_stations, 
+            stations_for_map
+        )
 
         # Se valida que la estructura de las soluciones generadas sea correcta 
         # y contenga los campos necesarios para el funcionamiento del sistema
@@ -549,12 +584,7 @@ async def create_escenario(
                 "algorithm": selected_algorithm["name"],
                 "algorithm_params": validated_algorithm_params,
             },
-            "raster": {
-                "geojson_type": raster_type,
-                "features_count": len(raster_features),
-                "has_crs": raster_has_crs,
-                "geojson": raster_data
-            },
+            "raster": raster_response,
             "stations": {
                 "total": len(stations_for_map),
                 "items" : stations_for_map

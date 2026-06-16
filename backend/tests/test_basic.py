@@ -8,7 +8,9 @@ from main import (
     generate_dummy_new_stations,
     generate_dummy_solutions,
     dominates,
-    pareto_fronts
+    pareto_fronts,
+    validate_solution_json,
+    validate_algorithm_params
 )
 
 # Prueba básica para verificar que pytest funciona correctamente
@@ -328,6 +330,281 @@ def test_pareto_fronts_maximization():
     assert fronts_by_id["D"] == 0
     assert fronts_by_id["E"] == 0
     assert fronts_by_id["B"] == 1
-    assert fronts_by_id["C"] == 2       
+    assert fronts_by_id["C"] == 2     
+
+#------------------ VALIDACIÓN DE ESTRUCTURA JSON ------------------
+
+# Prueba que valida que una lista de soluciones con estructura correcta sea aceptada.
+def test_validate_solution_json_valid_structure():
+    solutions = [
+        {
+            "id": 1,
+            "objective_1": 0.8,
+            "objective_2": 0.6,
+            "pareto_front": 0,
+            "new_stations": [
+                {
+                    "id": "NEW_1",
+                    "latitude": -33.45,
+                    "longitude": -70.66
+                }
+            ]
+        }
+    ]
+
+    validate_solution_json(solutions)
+
+
+# Prueba que valida que la salida de soluciones debe ser una lista.
+def test_validate_solution_json_rejects_non_list():
+    solutions = {
+        "id": 1,
+        "objective_1": 0.8
+    }
+
+    with pytest.raises(HTTPException) as exc_info:
+        validate_solution_json(solutions)
+
+    assert exc_info.value.status_code == 500
+    assert exc_info.value.detail == "La salida de soluciones debe ser una lista"
+
+
+# Prueba que valida que la lista de soluciones no puede estar vacía.
+def test_validate_solution_json_rejects_empty_list():
+    solutions = []
+
+    with pytest.raises(HTTPException) as exc_info:
+        validate_solution_json(solutions)
+
+    assert exc_info.value.status_code == 500
+    assert exc_info.value.detail == "La lista de soluciones no puede estar vacía"
+
+
+# Prueba que valida que cada solución debe contener todos los campos requeridos.
+def test_validate_solution_json_rejects_solution_missing_required_field():
+    solutions = [
+        {
+            "id": 1,
+            "objective_1": 0.8,
+            "objective_2": 0.6,
+            "new_stations": []
+        }
+    ]
+
+    with pytest.raises(HTTPException) as exc_info:
+        validate_solution_json(solutions)
+
+    assert exc_info.value.status_code == 500
+    assert "no contiene los campos requeridos" in exc_info.value.detail
+
+
+# Prueba que valida que new_stations debe ser una lista.
+def test_validate_solution_json_rejects_new_stations_not_list():
+    solutions = [
+        {
+            "id": 1,
+            "objective_1": 0.8,
+            "objective_2": 0.6,
+            "pareto_front": 0,
+            "new_stations": "no soy una lista"
+        }
+    ]
+
+    with pytest.raises(HTTPException) as exc_info:
+        validate_solution_json(solutions)
+
+    assert exc_info.value.status_code == 500
+    assert "debe contener una lista de estaciones nuevas" in exc_info.value.detail
+
+
+# Prueba que valida que cada estación nueva debe contener id, latitude y longitude.
+def test_validate_solution_json_rejects_station_missing_required_field():
+    solutions = [
+        {
+            "id": 1,
+            "objective_1": 0.8,
+            "objective_2": 0.6,
+            "pareto_front": 0,
+            "new_stations": [
+                {
+                    "id": "NEW_1",
+                    "latitude": -33.45
+                }
+            ]
+        }
+    ]
+
+    with pytest.raises(HTTPException) as exc_info:
+        validate_solution_json(solutions)
+
+    assert exc_info.value.status_code == 500
+    assert "no contiene los campos requeridos" in exc_info.value.detail
+
+
+# Prueba que valida que latitude debe ser numérica.
+def test_validate_solution_json_rejects_non_numeric_latitude():
+    solutions = [
+        {
+            "id": 1,
+            "objective_1": 0.8,
+            "objective_2": 0.6,
+            "pareto_front": 0,
+            "new_stations": [
+                {
+                    "id": "NEW_1",
+                    "latitude": "no numerico",
+                    "longitude": -70.66
+                }
+            ]
+        }
+    ]
+
+    with pytest.raises(HTTPException) as exc_info:
+        validate_solution_json(solutions)
+
+    assert exc_info.value.status_code == 500
+    assert "debe ser numerica" in exc_info.value.detail
+
+
+# Prueba que valida que longitude debe ser numérica.
+def test_validate_solution_json_rejects_non_numeric_longitude():
+    solutions = [
+        {
+            "id": 1,
+            "objective_1": 0.8,
+            "objective_2": 0.6,
+            "pareto_front": 0,
+            "new_stations": [
+                {
+                    "id": "NEW_1",
+                    "latitude": -33.45,
+                    "longitude": "no numerico"
+                }
+            ]
+        }
+    ]
+
+    with pytest.raises(HTTPException) as exc_info:
+        validate_solution_json(solutions)
+
+    assert exc_info.value.status_code == 500
+    assert "debe ser numerica" in exc_info.value.detail
+
+#------------------ VALIDACIÓN DE PARÁMETROS DEL ALGORITMO ------------------
+
+# Prueba que valida parámetros correctos para un algoritmo existente.
+def test_validate_algorithm_params_valid_nsga2():
+    algorithm_id = "nsga2"
+    algorithm_params_raw = '''
+    {
+        "population_size": 50,
+        "generations": 100,
+        "mutation_rate": 0.5
+    }
+    '''
+
+    selected_algorithm, params = validate_algorithm_params(
+        algorithm_id,
+        algorithm_params_raw
+    )
+
+    assert selected_algorithm["id"] == "nsga2"
+    assert params["population_size"] == 50.0
+    assert params["generations"] == 100.0
+    assert params["mutation_rate"] == 0.5
+
+
+# Prueba que valida que se rechace un algoritmo inexistente.
+def test_validate_algorithm_params_rejects_unknown_algorithm():
+    algorithm_id = "algoritmo_inexistente"
+    algorithm_params_raw = "{}"
+
+    with pytest.raises(HTTPException) as exc_info:
+        validate_algorithm_params(algorithm_id, algorithm_params_raw)
+
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.detail == "El algoritmo seleccionado no existe"
+
+
+# Prueba que valida que los parámetros deben venir en formato JSON válido.
+def test_validate_algorithm_params_rejects_invalid_json():
+    algorithm_id = "nsga2"
+    algorithm_params_raw = "{ esto no es json }"
+
+    with pytest.raises(HTTPException) as exc_info:
+        validate_algorithm_params(algorithm_id, algorithm_params_raw)
+
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.detail == "Los parámetros del algoritmo no tienen formato JSON válido"
+
+
+# Prueba que valida que los parámetros deben ser numéricos.
+def test_validate_algorithm_params_rejects_non_numeric_value():
+    algorithm_id = "nsga2"
+    algorithm_params_raw = '''
+    {
+        "population_size": "no numerico",
+        "generations": 100,
+        "mutation_rate": 0.5
+    }
+    '''
+
+    with pytest.raises(HTTPException) as exc_info:
+        validate_algorithm_params(algorithm_id, algorithm_params_raw)
+
+    assert exc_info.value.status_code == 400
+    assert "debe ser numérico" in exc_info.value.detail
+
+
+# Prueba que valida que un parámetro no sea menor al mínimo definido.
+def test_validate_algorithm_params_rejects_value_below_minimum():
+    algorithm_id = "nsga2"
+    algorithm_params_raw = '''
+    {
+        "population_size": 0,
+        "generations": 100,
+        "mutation_rate": 0.5
+    }
+    '''
+
+    with pytest.raises(HTTPException) as exc_info:
+        validate_algorithm_params(algorithm_id, algorithm_params_raw)
+
+    assert exc_info.value.status_code == 400
+    assert "debe ser mayor o igual" in exc_info.value.detail
+
+
+# Prueba que valida que un parámetro no sea mayor al máximo definido.
+def test_validate_algorithm_params_rejects_value_above_maximum():
+    algorithm_id = "nsga2"
+    algorithm_params_raw = '''
+    {
+        "population_size": 50,
+        "generations": 100,
+        "mutation_rate": 2
+    }
+    '''
+
+    with pytest.raises(HTTPException) as exc_info:
+        validate_algorithm_params(algorithm_id, algorithm_params_raw)
+
+    assert exc_info.value.status_code == 400
+    assert "debe ser menor o igual" in exc_info.value.detail
+
+
+# Prueba que valida que los parámetros faltantes se completen con valores por defecto.
+def test_validate_algorithm_params_uses_default_values_when_missing():
+    algorithm_id = "nsga2"
+    algorithm_params_raw = "{}"
+
+    selected_algorithm, params = validate_algorithm_params(
+        algorithm_id,
+        algorithm_params_raw
+    )
+
+    assert selected_algorithm["id"] == "nsga2"
+    assert "population_size" in params
+    assert "generations" in params
+    assert "mutation_rate" in params
 
 

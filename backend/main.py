@@ -605,16 +605,16 @@ async def create_escenario(
         }
     
     # Manejo de errores especificos para cada tipo de problema
+    except HTTPException:
+        # Conserva errores de validación como 400
+        raise
+
     except json.JSONDecodeError:
         raise HTTPException(
             status_code=400,
-            detail="El archivo raster no es un JSON/GeoJSON válido"
+            detail="El archivo raster no contiene un JSON válido"
         )
-    except UnicodeDecodeError:
-        raise HTTPException(
-            status_code=400,
-            detail="No se pudo leer el archivo de estaciones como texto UTF-8"
-        )
+
     except Exception as e:
         raise HTTPException(
             status_code=500,

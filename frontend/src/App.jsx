@@ -76,6 +76,7 @@ function App() {
   const [showRasterLayer, setShowRasterLayer] = useState(true)  
   const [tooltipSolution, setTooltipSolution] = useState(null) 
   const [visibleFronts, setVisibleFronts] = useState({})
+  const [seed, setSeed] = useState("")
 
   // Se obtiene el catálogo de algoritmos disponibles al cargar la aplicación
   useEffect(() => {
@@ -139,6 +140,12 @@ function App() {
     formData.append("stations_file", stationsFile)
     formData.append("n_stations", nStations)
     formData.append("n_solutions", nSolutions)
+
+    // Se agrega la semilla al formData solo si no está vacía
+    if (seed !== "") {
+      formData.append("seed", seed)
+    }
+
     // Se agregan al formData el algoritmo seleccionado y sus parámetros, convirtiendo estos últimos a JSON para enviarlos como string
     formData.append("algorithm", selectedAlgorithm)
     formData.append("algorithm_params", JSON.stringify(algorithmParams))
@@ -305,6 +312,16 @@ function App() {
             onChange={(e) => setNSolutions(e.target.value)}
           />
         </div>
+        
+        <div>
+          <label>Semilla de prueba opcional: </label>
+          <input
+            type="number"
+            value={seed}
+            onChange={(e) => setSeed(e.target.value)}
+            placeholder="Ej: 42"
+          />
+        </div>
 
         <button type="submit">Enviar</button>
       </form>
@@ -324,6 +341,9 @@ function App() {
           <p>Raster: {response.scenario.raster_filename}</p>
           <p>Estaciones: {response.scenario.stations_filename}</p>
           <p>N° de estaciones solicitadas: {response.scenario.n_stations}</p>
+          {response?.scenario?.seed !== null && response?.scenario?.seed !== undefined && (
+            <p>Semilla utilizada: {response.scenario.seed}</p>
+          )}
 
           {/* Raster */}
           <h3>Raster</h3>

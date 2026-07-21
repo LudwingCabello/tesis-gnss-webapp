@@ -1,1 +1,0 @@
-backend de la aplicación

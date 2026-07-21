@@ -194,7 +194,11 @@ async def get_algorithms():
 
 
 # Función para generar estaciones nuevas dummy cercanas a las estaciones existentes
-def generate_dummy_new_stations(n_stations: int, base_station: dict):
+def generate_dummy_new_stations(n_stations: int, base_station: dict, rng=None):
+
+    if rng is None:
+        rng = random 
+
     new_stations = []
 
     # Se toma la latitud y longitud de la estación base para generar coordenadas cercanas
@@ -205,8 +209,8 @@ def generate_dummy_new_stations(n_stations: int, base_station: dict):
         new_station = {
             "id": f"NEW_{i+1}",
             # Mueve la nueva estación alrededor de la existente
-            "latitude": round(base_lat + random.uniform(-0.08, 0.08), 6),
-            "longitude": round(base_lon + random.uniform(-0.08, 0.08), 6)        
+            "latitude": round(base_lat + rng.uniform(-0.08, 0.08), 6),
+            "longitude": round(base_lon + rng.uniform(-0.08, 0.08), 6)        
         }
         new_stations.append(new_station)
 
@@ -214,20 +218,25 @@ def generate_dummy_new_stations(n_stations: int, base_station: dict):
 
 # Función para generar soluciones dummy con objetivos aleatorios y 
 # estaciones nuevas generadas a partir de una estación base seleccionada aleatoriamente
-def generate_dummy_solutions(n_solutions: int, n_stations: int, stations_for_map: list):
+def generate_dummy_solutions(n_solutions: int, n_stations: int, stations_for_map: list, seed: int | None = None):
+    if seed is not None:
+        rng = random.Random(seed)
+    else:
+        rng = random
+    
     # Se crea una lista vacía para almacenar las soluciones generadas
     solutions = []
     # Se selecciona una estación base de manera aleatoria
-    base_station = random.choice(stations_for_map)
+    base_station = rng.choice(stations_for_map)
 
     # Se generan soluciones con objetivos aleatorios y estaciones nuevas generadas a partir de la estación base seleccionada
     for i in range(n_solutions):
         solution = {
             "id": i + 1,
             # Se generan valores aleatorios para los objetivos, redondeados a 3 decimales para mayor realismo
-            "objective_1": round(random.uniform(0.2, 1.0), 3),
-            "objective_2": round(random.uniform(0.2, 1.0), 3),
-            "new_stations": generate_dummy_new_stations(n_stations, base_station)
+            "objective_1": round(rng.uniform(0.2, 1.0), 3),
+            "objective_2": round(rng.uniform(0.2, 1.0), 3),
+            "new_stations": generate_dummy_new_stations(n_stations, base_station, rng)
         }
         solutions.append(solution)
     # Se asignan los frentes de pareto a las soluciones generadas para simular un resultado más realista de un algoritmo multiobjetivo
@@ -534,7 +543,8 @@ async def create_escenario(
     n_stations: int = Form(...),
     n_solutions: int = Form(5),    
     algorithm: str = Form(...),
-    algorithm_params: str = Form("{}")
+    algorithm_params: str = Form("{}"),
+    seed : int | None = Form(None)
 ):   
     start_total = time.perf_counter()
     performance = {}
@@ -561,7 +571,8 @@ async def create_escenario(
         solutions = generate_dummy_solutions(
             n_solutions, 
             n_stations, 
-            stations_for_map
+            stations_for_map,
+            seed=seed
         )
 
         # Se valida que la estructura de las soluciones generadas sea correcta 
@@ -583,6 +594,7 @@ async def create_escenario(
                 "n_solutions": n_solutions,
                 "algorithm": selected_algorithm["name"],
                 "algorithm_params": validated_algorithm_params,
+                "seed": seed,
             },
             "raster": raster_response,
             "stations": {

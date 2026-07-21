@@ -608,3 +608,39 @@ def test_validate_algorithm_params_uses_default_values_when_missing():
     assert "mutation_rate" in params
 
 
+#------------------ PRUEBAS SEMILLAS ------------------
+
+# Prueba que valida la consistencia de resultados usando la misma semilla.
+# Si se usan los mismos datos de entrada y la misma semilla, las soluciones dummy deben ser iguales.
+def test_generate_dummy_solutions_same_seed_returns_same_results():
+    stations_for_map = [
+        {
+            "id": "1",
+            "station": "SANT",
+            "latitude": -33.45,
+            "longitude": -70.66
+        },
+        {
+            "id": "2",
+            "station": "VALP",
+            "latitude": -33.04,
+            "longitude": -71.61
+        }
+    ]
+
+    result_1 = generate_dummy_solutions(
+        n_solutions=5,
+        n_stations=3,
+        stations_for_map=stations_for_map,
+        seed=42
+    )
+
+    result_2 = generate_dummy_solutions(
+        n_solutions=5,
+        n_stations=3,
+        stations_for_map=stations_for_map,
+        seed=42
+    )
+
+    assert result_1 == result_2
+

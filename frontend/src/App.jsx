@@ -8,6 +8,12 @@ import { scaleLinear } from "@visx/scale"
 import { AxisBottom, AxisLeft } from "@visx/axis" 
 import L from "leaflet"
 
+// Dirección base del backend.
+// En desarrollo usa localhost y, al desplegarse, utiliza VITE_API_URL.
+const API_BASE_URL = (
+  import.meta.env.VITE_API_URL || "http://localhost:8000"
+).replace(/\/$/, "")
+
 // Función para asignar colores a las soluciones según su frente de pareto
 const getFrontColor = (front) => {
   if (front == 0) return "#e63946"
@@ -81,7 +87,7 @@ function App() {
 
   // Se obtiene el catálogo de algoritmos disponibles al cargar la aplicación
   useEffect(() => {
-    fetch("http://localhost:8000/algorithms")
+    fetch(`${API_BASE_URL}/algorithms`)
       .then((res) => res.json())
       .then((data) => {
         setAlgorithms(data.algorithms)
@@ -188,7 +194,7 @@ function App() {
 
       const startRequest = performance.now()
 
-      const res = await fetch("http://localhost:8000/scenario", {
+      const res = await fetch(`${API_BASE_URL}/scenario`, {
         method: "POST",
         body: formData
       })

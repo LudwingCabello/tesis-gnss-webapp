@@ -6,17 +6,33 @@ import random
 import csv 
 import io
 import time
+import os
 
 app = FastAPI()
 
-# permite que el frontend (que corre en otro puerto) pueda hacer peticiones al backend sin problemas de CORS 
+# Orígenes permitidos por defecto para el entorno de desarrollo local.
+DEFAULT_ALLOWED_ORIGINS = (
+    "http://localhost:5173,"
+    "http://127.0.0.1:5173"
+)
+
+# Obtiene los orígenes desde una variable de entorno.
+# Si la variable no existe, mantiene los orígenes locales.
+allowed_origins = [
+    origin.strip()
+    for origin in os.getenv(
+        "ALLOWED_ORIGINS",
+        DEFAULT_ALLOWED_ORIGINS
+    ).split(",")
+    if origin.strip()
+]
+
+# Permite que el frontend se comunique con la API desde los
+# orígenes autorizados.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-    ],
-    allow_credentials=True,
+    allow_origins=allowed_origins,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )

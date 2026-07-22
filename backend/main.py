@@ -136,14 +136,16 @@ ALGORITHM_CATALOG = [
                 "label": "Tamaño de población",
                 "type": "number",
                 "default": 50,
-                "min": 1
+                "min": 1,
+                "step": 1
             },
             {
                 "name": "generations",
                 "label": "Número de generaciones",
                 "type": "number",
                 "default": 100,
-                "min": 1
+                "min": 1,
+                "step": 1
             },
             {
                 "name": "mutation_rate",
@@ -151,7 +153,8 @@ ALGORITHM_CATALOG = [
                 "type": "number",
                 "default": 0.1,
                 "min": 0,
-                "max": 1
+                "max": 1,
+                "step": 0.01
             }
         ]
     },
@@ -165,7 +168,8 @@ ALGORITHM_CATALOG = [
                 "label": "Temperatura inicial",
                 "type": "number",
                 "default": 100,
-                "min": 1
+                "min": 1,
+                "step": 1
             },
             {
                 "name": "cooling_rate",
@@ -173,14 +177,16 @@ ALGORITHM_CATALOG = [
                 "type": "number",
                 "default": 0.95,
                 "min": 0,
-                "max": 1
+                "max": 1,
+                "step": 0.01
             },
             {
                 "name": "iterations",
                 "label": "Iteraciones",
                 "type": "number",
                 "default": 100,
-                "min": 1
+                "min": 1,
+                "step": 1
             }
         ]
     }

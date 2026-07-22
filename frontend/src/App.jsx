@@ -77,6 +77,7 @@ function App() {
   const [tooltipSolution, setTooltipSolution] = useState(null) 
   const [visibleFronts, setVisibleFronts] = useState({})
   const [seed, setSeed] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
 
   // Se obtiene el catálogo de algoritmos disponibles al cargar la aplicación
   useEffect(() => {
@@ -94,6 +95,30 @@ function App() {
   const currentAlgorithm = algorithms.find(
     (algorithm) => algorithm.id === selectedAlgorithm
   )
+
+  // Convierte los distintos formatos de error del backend
+  // en un mensaje de texto que React pueda mostrar.
+  const formatApiError = (detail) => {
+    if (typeof detail === "string") {
+      return detail
+    }
+
+    if (Array.isArray(detail)) {
+      return detail
+        .map((error) => {
+          const field = Array.isArray(error.loc)
+            ? error.loc[error.loc.length - 1]
+            : null
+
+          return field
+            ? `${field}: ${error.msg}`
+            : error.msg
+        })
+        .join(" | ")
+    }
+
+    return "Ocurrió un error al procesar el escenario."
+  }
   
   // Manejo del envío del formulario
   const handleSubmit = async (e) => {
@@ -121,18 +146,27 @@ function App() {
       return
     }
 
-    if (nStations <= 0) {
+    if (!selectedAlgorithm) {
+    setErrorMessage("Debe seleccionar un algoritmo de prueba.")
+    return
+    }
+
+    if (Number(nStations) <= 0) {
       setErrorMessage("El número de estaciones debe ser mayor que 0")
       return
     }
 
-    if (nSolutions <= 0) {
+    if (Number(nSolutions) <= 0) {
       setErrorMessage("El número de soluciones debe ser mayor que 0")
       return
     }
     
     // Reiniciar solución seleccionada al enviar nuevo escenario
     setSelectedSolution(null)
+
+    // Reiniciar estado de carga y respuesta al enviar nuevo escenario
+    setIsLoading(true)
+    setResponse(null)
 
     // Validación de archivos y número de estaciones
     const formData = new FormData()
@@ -162,7 +196,7 @@ function App() {
       const data = await res.json()
       // Si la respuesta no es ok, se muestra el mensaje de error enviado por el backend o un mensaje genérico
       if (!res.ok) {
-        setErrorMessage(data.detail || "Ocurrió un error al procesar el escenario")
+        setErrorMessage(formatApiError(data.detail))
         return
       }
 
@@ -178,6 +212,11 @@ function App() {
 
     } catch (error) {
       console.error(error)
+
+      setErrorMessage("No fue posible conectar con el servidor. Verifique que el backend este en ejecución")
+
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -199,6 +238,10 @@ function App() {
     return visibleFronts[solution.pareto_front] !== false
   })
 
+  // Muestra permanentemente los identificadores cuando existen pocas soluciones.
+  // Si existen muchas, solo se muestra el identificador de la solución seleccionada.
+  const showSolutionLabels = filteredSolutions.length <= 15
+
   // Función para alternar la visibilidad de un frente de pareto específico, 
   // actualizando el estado visibleFronts para mostrar u ocultar las soluciones correspondientes
   const toggleFront = (front) => {
@@ -206,6 +249,34 @@ function App() {
       ...prev,
       [front]: prev[front] === false ? true : false
     }))
+  }
+
+  // Activa la visualización de todos los frentes disponibles.
+  const showAllFronts = () => {
+    const allFrontsVisible = {}
+
+    availableFronts.forEach((front) => {
+      allFrontsVisible[front] = true
+    })
+
+    setVisibleFronts(allFrontsVisible)
+  }
+
+
+  // Muestra únicamente las soluciones pertenecientes al frente 0.
+  const showOnlyFrontZero = () => {
+    const onlyFrontZeroVisible = {}
+
+    availableFronts.forEach((front) => {
+      onlyFrontZeroVisible[front] = front === 0
+    })
+
+    setVisibleFronts(onlyFrontZeroVisible)
+
+    // Evita mantener seleccionada una solución que quedará oculta.
+    if (selectedSolution?.pareto_front !== 0) {
+      setSelectedSolution(null)
+    }
   }
 
   // Convertir valores de datos a posiciones en pantalla usando escalas lineales
@@ -231,100 +302,352 @@ function App() {
   const adjustedTooltipY =
     tooltipY < 90 ? tooltipY + 20 : tooltipY - 70
 
+  // ----------------- ESTILO FORMULARIO ------------------------------
+  
+  // Estilos para el formulario y secciones
+  const formStyle = {
+    maxWidth: "760px",
+    margin: "0 auto",
+    padding: "24px",
+    border: "1px solid #3f4654",
+    borderRadius: "12px",
+    background: "#181b22"
+  }
+
+  // Estilos para las secciones del formulario, incluyendo borde, padding y margen inferior
+  const sectionStyle = {
+    border: "1px solid #3f4654",
+    borderRadius: "10px",
+    padding: "18px",
+    marginBottom: "18px"
+  }
+
+  // Estilos para los títulos de las secciones del formulario, incluyendo padding, font-weight y tamaño de fuente
+  const legendStyle = {
+    padding: "0 10px",
+    fontWeight: "bold",
+    fontSize: "18px"
+  }
+
+  // Estilos para las filas de campos del formulario, utilizando grid layout para alinear etiquetas y controles, con gap y margen inferior
+  const fieldRowStyle = {
+    display: "grid",
+    gridTemplateColumns: "minmax(200px, 260px) minmax(240px, 1fr)",
+    alignItems: "center",
+    gap: "12px",
+    marginBottom: "12px",
+    textAlign: "left"
+  }
+
+  // Estilos para los controles de entrada del formulario, asegurando que ocupen todo el ancho disponible y tengan box-sizing border-box para incluir padding y borde en el tamaño total
+  const controlStyle = {
+    width: "100%",
+    boxSizing: "border-box"
+  }
+
+  // Estilos para la tarjeta de resultados, incluyendo ancho máximo, margen, padding, borde, radio de borde y fondo
+  const resultCardStyle = {
+  maxWidth: "900px",
+  margin: "30px auto",
+  padding: "24px",
+  border: "1px solid #3f4654",
+  borderRadius: "12px",
+  background: "#181b22"
+}
+
+// ----------------- ESTILO RESUMEN ------------------------------
+
+// Estilos para el grid de resumen, utilizando grid layout con columnas automáticas y gap entre
+const summaryGridStyle = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
+  gap: "14px",
+  marginTop: "20px"
+}
+
+// Estilos para cada ítem del resumen, incluyendo padding, borde, radio
+const summaryItemStyle = {
+  padding: "14px",
+  border: "1px solid #3f4654",
+  borderRadius: "8px",
+  textAlign: "left"
+}
+
+// Estilos para las etiquetas de los ítems del resumen, incluyendo tamaño de fuente, opacidad y margen inferior
+const summaryLabelStyle = {
+  display: "block",
+  fontSize: "14px",
+  opacity: 0.75,
+  marginBottom: "5px"
+}
+
+// Estilos para los valores de los ítems del resumen, incluyendo font-weight y overflow
+const summaryValueStyle = {
+  fontWeight: "bold",
+  overflowWrap: "anywhere"
+}
+
+// ----------------- ESTILO VISUALIZACIÓN DE SOLUCIONES ------------------------------
+
+// Estilos para la sección de visualización de soluciones, incluyendo ancho máximo, margen, padding, borde, radio de borde y fondo
+const visualizationSectionStyle = {
+  maxWidth: "1200px",
+  margin: "30px auto",
+  padding: "24px",
+  border: "1px solid #3f4654",
+  borderRadius: "12px",
+  background: "#181b22"
+}
+
+// Estilos para el contenedor del gráfico de soluciones, incluyendo margen superior, overflow horizontal, fondo, radio de borde y padding
+const chartContainerStyle = {
+  marginTop: "20px",
+  overflowX: "auto",
+  background: "white",
+  borderRadius: "10px",
+  padding: "12px",
+  width: "100%",
+  boxSizing: "border-box"
+}
+
+// Estilos para la tarjeta de la solución seleccionada, incluyendo margen superior, padding, borde, radio de borde y fondo
+const selectedSolutionCardStyle = {
+  marginTop: "20px",
+  padding: "20px",
+  border: "1px solid #3f4654",
+  borderRadius: "10px",
+  background: "#15181f"
+}
+
+// ----------------- ESTILO MAPA ------------------------------
+
+// Estilos para la sección del mapa, incluyendo ancho máximo, margen, padding, borde, radio de borde y fondo
+const mapSectionStyle = {
+  maxWidth: "1200px",
+  margin: "30px auto",
+  padding: "24px",
+  border: "1px solid #3f4654",
+  borderRadius: "12px",
+  background: "#181b22"
+}
+
   return (
     <div style={{ padding: "20px" }}>
       <h1>GNSS Optimización</h1>
 
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} style={formStyle}>
+        <h2 style={{ marginTop: 0 }}>Configuración del escenario</h2>
 
-        <div>
-          <label>Raster (.geojson): </label>
-          <input
-            type="file"
-            onChange={(e) => setRasterFile(e.target.files[0])}
-          />
-        </div>
-      
-        <div>
-         
-          <label>Estaciones (.csv): </label>
-          <input
-            type="file"
-            onChange={(e) => setStationsFile(e.target.files[0])}
-          />
-        </div>
+        {/* Sección 1: archivos de entrada */}
+        <fieldset style={sectionStyle}>
+          <legend style={legendStyle}>1. Datos de entrada</legend>
 
-        <div>
-          <label>Algoritmo:</label>
+          <div style={fieldRowStyle}>
+            <label htmlFor="raster-file">
+              Raster GeoJSON:
+            </label>
 
-          <select
-            value={selectedAlgorithm}
-            onChange={(e) => setSelectedAlgorithm(e.target.value)}
-          >
-            <option value="">Seleccione un algoritmo</option>
-
-            {algorithms.map((algorithm) => (
-              <option key={algorithm.id} value={algorithm.id}>
-                {algorithm.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {currentAlgorithm && (
-          <div>
-            <h3>Parámetros de {currentAlgorithm.name}</h3>
-
-            {currentAlgorithm.parameters.map((param) => (
-              <div key={param.name}>
-                <label>{param.label}: </label>
-                <input
-                  type={param.type}
-                  defaultValue={param.default}
-                  min={param.min}
-                  max={param.max}
-                  onChange={(e) =>
-                    setAlgorithmParams({
-                      ...algorithmParams,
-                      [param.name]: e.target.value
-                    })
-                  }
-                />
-              </div>
-            ))}
+            <input
+              id="raster-file"
+              type="file"
+              accept=".geojson,application/geo+json"
+              onChange={(e) => setRasterFile(e.target.files[0])}
+              style={controlStyle}
+            />
           </div>
-        )}
 
-        <div>
-          <label>Número de estaciones: </label>
-          <input
-            type="number"
-            value={nStations}
-            onChange={(e) => setNStations(e.target.value)}
-          />
-        </div>
+          <div style={fieldRowStyle}>
+            <label htmlFor="stations-file">
+              Estaciones CSV:
+            </label>
 
-        <div>
-          <label>Número de soluciones: </label>
-          <input
-            type="number"
-            value={nSolutions}
-            onChange={(e) => setNSolutions(e.target.value)}
-          />
-        </div>
-        
-        <div>
-          <label>Semilla de prueba opcional: </label>
-          <input
-            type="number"
-            value={seed}
-            onChange={(e) => setSeed(e.target.value)}
-            placeholder="Ej: 42"
-          />
-        </div>
+            <input
+              id="stations-file"
+              type="file"
+              accept=".csv,text/csv"
+              onChange={(e) => setStationsFile(e.target.files[0])}
+              style={controlStyle}
+            />
+          </div>
+        </fieldset>
 
-        <button type="submit">Enviar</button>
+        {/* Sección 2: algoritmo y parámetros */}
+        <fieldset style={sectionStyle}>
+          <legend style={legendStyle}>2. Algoritmo de prueba</legend>
+
+          <div style={fieldRowStyle}>
+            <label htmlFor="algorithm-select">
+              Algoritmo:
+            </label>
+
+            <select
+              id="algorithm-select"
+              value={selectedAlgorithm}
+              onChange={(e) => {
+                setSelectedAlgorithm(e.target.value)
+                setAlgorithmParams({})
+                setErrorMessage("")
+              }}
+              style={controlStyle}
+            >
+              <option value="">Seleccione un algoritmo</option>
+
+              {algorithms.map((algorithm) => (
+                <option key={algorithm.id} value={algorithm.id}>
+                  {algorithm.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {currentAlgorithm && (
+            <div
+              style={{
+                marginTop: "18px",
+                paddingTop: "16px",
+                borderTop: "1px solid #3f4654"
+              }}
+            >
+              <h3 style={{ marginTop: 0 }}>
+                Parámetros de {currentAlgorithm.name}
+              </h3>
+
+              {currentAlgorithm.parameters.map((param) => (
+                <div key={param.name} style={fieldRowStyle}>
+                  <label htmlFor={`param-${param.name}`}>
+                    {param.label}:
+                  </label>
+
+                  <input
+                    id={`param-${param.name}`}
+                    type={param.type}
+                    value={algorithmParams[param.name] ?? param.default}
+                    min={param.min}
+                    max={param.max}
+                    step={param.step ?? 1}
+                    onChange={(e) =>
+                      setAlgorithmParams((previousParams) => ({
+                        ...previousParams,
+                        [param.name]: e.target.value
+                      }))
+                    }
+                    style={controlStyle}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+        </fieldset>
+
+        {/* Sección 3: configuración general */}
+        <fieldset style={sectionStyle}>
+          <legend style={legendStyle}>3. Configuración del escenario</legend>
+
+          <div style={fieldRowStyle}>
+            <label htmlFor="n-stations">
+              Número de estaciones nuevas:
+            </label>
+
+            <input
+              id="n-stations"
+              type="number"
+              min="1"
+              value={nStations}
+              onChange={(e) => setNStations(e.target.value)}
+              style={controlStyle}
+            />
+          </div>
+
+          <div style={fieldRowStyle}>
+            <label htmlFor="n-solutions">
+              Número de soluciones:
+            </label>
+
+            <input
+              id="n-solutions"
+              type="number"
+              min="1"
+              value={nSolutions}
+              onChange={(e) => setNSolutions(e.target.value)}
+              style={controlStyle}
+            />
+          </div>
+
+          <details style={{ marginTop: "16px" }}>
+            <summary
+              style={{
+                cursor: "pointer",
+                fontWeight: "bold",
+                textAlign: "left"
+              }}
+            >
+              Opciones avanzadas
+            </summary>
+
+            <div style={{ ...fieldRowStyle, marginTop: "16px" }}>
+              <label htmlFor="scenario-seed">
+                Semilla de reproducibilidad:
+              </label>
+
+              <input
+                id="scenario-seed"
+                type="number"
+                value={seed}
+                onChange={(e) => setSeed(e.target.value)}
+                placeholder="Ejemplo: 42"
+                style={controlStyle}
+              />
+            </div>
+
+            <p
+              style={{
+                fontSize: "14px",
+                textAlign: "left",
+                marginBottom: 0,
+                opacity: 0.8
+              }}
+            >
+              Utilice la misma semilla para reproducir un escenario con
+              los mismos datos y parámetros.
+            </p>
+          </details>
+        </fieldset>
+
+        <button
+          type="submit"
+          disabled={isLoading}
+          style={{
+            padding: "10px 22px",
+            fontSize: "16px",
+            fontWeight: "bold",
+            cursor: isLoading ? "not-allowed" : "pointer"
+          }}
+        >
+          {isLoading ? "Generando escenario..." : "Generar escenario"}
+        </button>
       </form>
+
+      {!response && (
+        <div
+          style={{
+            marginTop: "30px",
+            padding: "24px",
+            border: "1px solid #3f4654",
+            borderRadius: "10px",
+            maxWidth: "700px",
+            marginLeft: "auto",
+            marginRight: "auto"
+          }}
+        >
+          <h2 style={{ marginTop: 0 }}>Configure un escenario</h2>
+
+          <p style={{ marginBottom: 0 }}>
+            Cargue los archivos requeridos, seleccione un algoritmo de prueba
+            y defina la cantidad de estaciones y soluciones para visualizar
+            los resultados.
+          </p>
+        </div>
+      )}
 
       {errorMessage && (
         <div style={{ color: "red", marginTop: "15px", fontWeight: "bold" }}>
@@ -333,64 +656,163 @@ function App() {
       )}
 
       {response && (
-        <div style={{ marginTop: "20px" }}>
-          <h2>Resultado del Escenario</h2>
+        <section style={resultCardStyle}>
+          <h2 style={{ marginTop: 0 }}>Resultado del escenario</h2>
 
-          {/* Resumen */}
-          <h3>Resumen</h3>
-          <p>Raster: {response.scenario.raster_filename}</p>
-          <p>Estaciones: {response.scenario.stations_filename}</p>
-          <p>N° de estaciones solicitadas: {response.scenario.n_stations}</p>
-          {response?.scenario?.seed !== null && response?.scenario?.seed !== undefined && (
-            <p>Semilla utilizada: {response.scenario.seed}</p>
-          )}
+          <div style={summaryGridStyle}>
+            <div style={summaryItemStyle}>
+              <span style={summaryLabelStyle}>Algoritmo</span>
+              <span style={summaryValueStyle}>
+                {response.scenario.algorithm}
+              </span>
+            </div>
 
-          {/* Raster */}
-          <h3>Raster</h3>
-          <p>Tipo: {response.raster.geojson_type}</p>
-          <p>Features: {response.raster.features_count}</p>
-          <p>CRS: {response.raster.has_crs ? "Sí" : "No"}</p>
+            <div style={summaryItemStyle}>
+              <span style={summaryLabelStyle}>Soluciones generadas</span>
+              <span style={summaryValueStyle}>
+                {response.scenario.n_solutions}
+              </span>
+            </div>
 
-          {/* Estaciones */}
-          <h3>Estaciones</h3>
-          <p>Total: {response.stations.total}</p>
+            <div style={summaryItemStyle}>
+              <span style={summaryLabelStyle}>Estaciones por solución</span>
+              <span style={summaryValueStyle}>
+                {response.scenario.n_stations}
+              </span>
+            </div>
 
-        </div>
-      )}
+            <div style={summaryItemStyle}>
+              <span style={summaryLabelStyle}>Estaciones existentes</span>
+              <span style={summaryValueStyle}>
+                {response.stations.total}
+              </span>
+            </div>
 
-      {response?.performance && (
-        <div>
-          <h3>Rendimiento</h3>
-          <p>Backend total: {response.performance.total_backend_seconds} s</p>
-          <p>Validación archivos: {response.performance.file_validation_seconds} s</p>
-          <p>Procesamiento raster: {response.performance.raster_processing_seconds} s</p>
-          <p>Procesamiento CSV: {response.performance.csv_processing_seconds} s</p>
-          <p>Generación soluciones: {response.performance.solution_generation_seconds} s</p>
-          <p>Clasificación Pareto: {response.performance.pareto_classification_seconds} s</p>
-        </div>
-      )}
-      
-      {currentAlgorithm && (
-        <div>
-          <h3>Algoritmo utilizado</h3>
-          <p>{currentAlgorithm.name}</p>
+            <div style={summaryItemStyle}>
+              <span style={summaryLabelStyle}>Elementos del raster</span>
+              <span style={summaryValueStyle}>
+                {response.raster.features_count}
+              </span>
+            </div>
 
-          <h4>Parámetros enviados</h4>
-          <ul>
-            {currentAlgorithm.parameters.map((param) => (
-              <li key={param.name}>
-                {param.label}: {algorithmParams[param.name] ?? param.default}
-              </li>
-            ))}
-          </ul>
-        </div>
+            <div style={summaryItemStyle}>
+              <span style={summaryLabelStyle}>Semilla utilizada</span>
+              <span style={summaryValueStyle}>
+                {response.scenario.seed ?? "Aleatoria"}
+              </span>
+            </div>
+          </div>
+
+          <details
+            style={{
+              marginTop: "20px",
+              textAlign: "left"
+            }}
+          >
+            <summary
+              style={{
+                cursor: "pointer",
+                fontWeight: "bold"
+              }}
+            >
+              Ver detalles del escenario
+            </summary>
+
+            <div style={{ marginTop: "15px" }}>
+              <p>
+                <strong>Raster:</strong>{" "}
+                {response.scenario.raster_filename}
+              </p>
+
+              <p>
+                <strong>Archivo de estaciones:</strong>{" "}
+                {response.scenario.stations_filename}
+              </p>
+
+              <p>
+                <strong>Tipo GeoJSON:</strong>{" "}
+                {response.raster.geojson_type}
+              </p>
+
+              <p>
+                <strong>CRS informado:</strong>{" "}
+                {response.raster.has_crs ? "Sí" : "No"}
+              </p>
+
+              <strong>Parámetros del algoritmo:</strong>
+
+              <ul>
+                {Object.entries(
+                  response.scenario.algorithm_params || {}
+                ).map(([parameterName, parameterValue]) => (
+                  <li key={parameterName}>
+                    {parameterName}: {parameterValue}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </details>
+        </section>
       )}
 
       {response && (
-        <div style={{ marginTop: "30px" }}>
-          <h2>Frontera de Pareto</h2>
+        <section style={visualizationSectionStyle}>
+          <h2 style={{ marginTop: 0 }}>
+            Exploración de soluciones
+          </h2>
+
+          <p>
+            Seleccione un punto del gráfico para visualizar sus valores
+            y las estaciones propuestas en el mapa.
+          </p>
+
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              flexWrap: "wrap",
+              gap: "10px",
+              marginTop: "16px",
+              marginBottom: "16px"
+            }}
+          >
+            <button
+              type="button"
+              onClick={showAllFronts}
+              style={{
+                padding: "8px 14px",
+                cursor: "pointer"
+              }}
+            >
+              Mostrar todos los frentes
+            </button>
+
+            <button
+              type="button"
+              onClick={showOnlyFrontZero}
+              style={{
+                padding: "8px 14px",
+                cursor: "pointer"
+              }}
+            >
+              Mostrar solo frente 0
+            </button>
+          </div>
+
+          <div style={chartContainerStyle}>
+            <svg
+              width={chartWidth}
+              height={chartHeight}
+              style={{
+                display: "block",
+                width: `${chartWidth}px`,
+                height: `${chartHeight}px`,
+                minWidth: `${chartWidth}px`,
+                maxWidth: "none",
+                margin: "0 auto"
+              }}
+            >
           {/* Se crea el gráfico SVG para la frontera de Pareto */}
-          <svg width={chartWidth} height={chartHeight} style={{ background: "white" }}>
             {/* Controles para los frentes de Pareto */}
             {/* Posición y tamaño del panel de controles */}
             <foreignObject x={plotWidth + 10} y={40} width={130} height={180}>
@@ -473,14 +895,19 @@ function App() {
                     onMouseLeave={() => setTooltipSolution(null)}
                   />
                   {/* Etiqueta para el punto */}
-                  <text
-                    x={xScale(solution.objective_1) + 8}
-                    y={yScale(solution.objective_2) - 8}
-                    fontSize={12}
-                    fill="black"
-                  >
-                    {solution.id}
-                  </text>
+                  {(showSolutionLabels || selectedSolution?.id === solution.id) && (
+                    <text
+                      x={xScale(solution.objective_1) + 8}
+                      y={yScale(solution.objective_2) - 8}
+                      fontSize={12}
+                      fontWeight={
+                        selectedSolution?.id === solution.id ? "bold" : "normal"
+                      }
+                      fill="black"
+                    >
+                      {solution.id}
+                    </text>
+                  )}
                 </g>
               ))}
               
@@ -540,130 +967,297 @@ function App() {
             </Group>
           </svg>
         </div>
-      )}
-      
-      {/* Información de la solución seleccionada */}
-      {selectedSolution && (
-        <div style={{ marginTop: "20px" }}>
-          <h3>Solución seleccionada</h3>
-          <p>ID: {selectedSolution.id}</p>
-          <p>Homogeneidad espacial: {selectedSolution.objective_1}</p>
-          <p>Variabilidad del desplazamiento: {selectedSolution.objective_2}</p>
-          <p>Frente de Pareto: {selectedSolution.pareto_front}</p>
-          <p>Estaciones nuevas: {selectedSolution.new_stations.length}</p>
+     {selectedSolution ? (
+        <div style={selectedSolutionCardStyle}>
+          <h3 style={{ marginTop: 0 }}>
+            Solución seleccionada
+          </h3>
 
-          <button onClick={() => setSelectedSolution(null)}>
-            Cerrar selección
+          <div style={summaryGridStyle}>
+            <div style={summaryItemStyle}>
+              <span style={summaryLabelStyle}>
+                Identificador
+              </span>
+              <span style={summaryValueStyle}>
+                Solución {selectedSolution.id}
+              </span>
+            </div>
+
+            <div style={summaryItemStyle}>
+              <span style={summaryLabelStyle}>
+                Homogeneidad espacial
+              </span>
+              <span style={summaryValueStyle}>
+                {selectedSolution.objective_1}
+              </span>
+            </div>
+
+            <div style={summaryItemStyle}>
+              <span style={summaryLabelStyle}>
+                Variabilidad del desplazamiento
+              </span>
+              <span style={summaryValueStyle}>
+                {selectedSolution.objective_2}
+              </span>
+            </div>
+
+            <div style={summaryItemStyle}>
+              <span style={summaryLabelStyle}>
+                Frente de Pareto
+              </span>
+              <span style={summaryValueStyle}>
+                {selectedSolution.pareto_front}
+              </span>
+            </div>
+
+            <div style={summaryItemStyle}>
+              <span style={summaryLabelStyle}>
+                Estaciones propuestas
+              </span>
+              <span style={summaryValueStyle}>
+                {selectedSolution.new_stations.length}
+              </span>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setSelectedSolution(null)}
+            style={{
+              marginTop: "18px",
+              padding: "8px 16px",
+              cursor: "pointer"
+            }}
+          >
+            Quitar selección
           </button>
         </div>
-      )}
-      <h2>Mapa base</h2>
-      {/* Caja contenedora del mapa */}
-      <div style={{ height: "600px", width: "100%", position: "relative" }}>
-        {/* Centro inicial del mapa, zoom inicial y cuanto ocupa de la caja */}
-        <MapContainer
-          center={[-30.0, -71.0]}
-          zoom={4}
-          style={{ height: "100%", width: "100%" }}
-        >
-          <LayersControl position="topright">
-              <LayersControl.BaseLayer checked name="Mapa base">
-                <TileLayer
-                  attribution='&copy; OpenStreetMap contributors'
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                />
-              </LayersControl.BaseLayer>
-            {/* Capa de raster / GeoJSON */}
-            <LayersControl.Overlay checked name="Raster / GeoJSON">
-              <LayerGroup>
-                {response?.raster?.geojson && (
-                  <GeoJSON
-                    data={response.raster.geojson}
-                    style={(feature) => {
-                      const value = feature.properties.valor_centroide
-                      const fillColor = getRasterColor(value)
+      ) : (
+        <div style={selectedSolutionCardStyle}>
+          <h3 style={{ marginTop: 0 }}>
+            Ninguna solución seleccionada
+          </h3>
 
-                      return {
-                        color: fillColor,
-                        weight: 0.2,
-                        fillColor: fillColor,
-                        fillOpacity: 0.45
-                      }
-                    }}
+          <p style={{ marginBottom: 0 }}>
+            Seleccione un punto de la frontera de Pareto para consultar
+            sus valores y mostrar sus estaciones propuestas en el mapa.
+          </p>
+        </div>
+      )}
+    </section>
+  )}
+      {response && (
+        <section style={mapSectionStyle}>
+          <h2 style={{ marginTop: 0 }}>
+            Visualización geoespacial
+          </h2>
+
+          <p>
+            {selectedSolution
+              ? `El mapa muestra las estaciones propuestas por la solución ${selectedSolution.id}, junto con las estaciones existentes y el raster de referencia.`
+              : "Seleccione una solución en el gráfico de Pareto para visualizar sus estaciones propuestas en el mapa."}
+          </p>
+
+          <div
+            style={{
+              height: "600px",
+              width: "100%",
+              position: "relative",
+              marginTop: "20px",
+              borderRadius: "10px",
+              overflow: "hidden"
+            }}
+          >
+          {/* Centro inicial del mapa, zoom inicial y cuanto ocupa de la caja */}
+          <MapContainer
+            center={[-30.0, -71.0]}
+            zoom={4}
+            style={{ height: "100%", width: "100%" }}
+          >
+            <LayersControl position="topright">
+                <LayersControl.BaseLayer checked name="Mapa base">
+                  <TileLayer
+                    attribution='&copy; OpenStreetMap contributors'
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                   />
-                )}
-              </LayerGroup>
-            </LayersControl.Overlay>
-            {/* Marcadores para las estaciones existentes */}
-            <LayersControl.Overlay checked name="Estaciones existentes">
-              <LayerGroup>
-                {response &&
-                  response.stations.items.map((station, index) => (
-                    <Marker
-                      key={`existing-${index}`}
-                      position={[station.latitude, station.longitude]}
-                      icon={triangleIcon}
-                    >
-                      <Popup>
-                        <div>
-                          <p><strong>ID:</strong> {station.id}</p>
-                          <p><strong>Latitud:</strong> {station.latitude}</p>
-                          <p><strong>Longitud:</strong> {station.longitude}</p>
-                        </div>
-                      </Popup>
-                    </Marker>
-                  ))}
-              </LayerGroup>
-            </LayersControl.Overlay>
-            {/* Marcadores para las nuevas estaciones, recorriendo las estaciones de la solución seleccionada */}
-            <LayersControl.Overlay checked name="Estaciones nuevas">
-              <LayerGroup>
-                {selectedSolution &&
-                  selectedSolution.new_stations.map((station, index) => (
-                    <Marker
-                      key={`new-${selectedSolution.id}-${index}`}
-                      position={[station.latitude, station.longitude]}
-                      icon={redIcon}
-                    >
-                      <Popup>
-                        <div>
-                          <p><strong>Solución:</strong> {selectedSolution.id}</p>
-                          <p><strong>ID:</strong> {station.id}</p>
-                          <p><strong>Latitud:</strong> {station.latitude}</p>
-                          <p><strong>Longitud:</strong> {station.longitude}</p>
-                        </div>
-                      </Popup>
-                    </Marker>
-                  ))}
-              </LayerGroup>
-            </LayersControl.Overlay>
-          </LayersControl>
-        </MapContainer>
-        {/* Leyenda de la capa de raster */}
-        {showRasterLayer && response?.raster?.geojson && (
-          <div 
-            style={{ 
-              position: "absolute",
-              bottom: "20px",
-              right: "20px",
-              zIndex: 1000,
-              background: "white",
-              padding: "10px",
-              borderRdius: "8px",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
-              color: "black",
-              fronSize: "14px",
+                </LayersControl.BaseLayer>
+              {/* Capa de raster / GeoJSON */}
+              <LayersControl.Overlay checked name="Raster / GeoJSON">
+                <LayerGroup>
+                  {response?.raster?.geojson && (
+                    <GeoJSON
+                      data={response.raster.geojson}
+                      style={(feature) => {
+                        const value = feature.properties.valor_centroide
+                        const fillColor = getRasterColor(value)
+
+                        return {
+                          color: fillColor,
+                          weight: 0.2,
+                          fillColor: fillColor,
+                          fillOpacity: 0.45
+                        }
+                      }}
+                    />
+                  )}
+                </LayerGroup>
+              </LayersControl.Overlay>
+              {/* Marcadores para las estaciones existentes */}
+              <LayersControl.Overlay checked name="Estaciones existentes">
+                <LayerGroup>
+                  {response &&
+                    response.stations.items.map((station, index) => (
+                      <Marker
+                        key={`existing-${index}`}
+                        position={[station.latitude, station.longitude]}
+                        icon={triangleIcon}
+                      >
+                        <Popup>
+                          <div>
+                            <p><strong>ID:</strong> {station.id}</p>
+                            <p><strong>Latitud:</strong> {station.latitude}</p>
+                            <p><strong>Longitud:</strong> {station.longitude}</p>
+                          </div>
+                        </Popup>
+                      </Marker>
+                    ))}
+                </LayerGroup>
+              </LayersControl.Overlay>
+              {/* Marcadores para las nuevas estaciones, recorriendo las estaciones de la solución seleccionada */}
+              <LayersControl.Overlay checked name="Estaciones nuevas">
+                <LayerGroup>
+                  {selectedSolution &&
+                    selectedSolution.new_stations.map((station, index) => (
+                      <Marker
+                        key={`new-${selectedSolution.id}-${index}`}
+                        position={[station.latitude, station.longitude]}
+                        icon={redIcon}
+                      >
+                        <Popup>
+                          <div>
+                            <p><strong>Solución:</strong> {selectedSolution.id}</p>
+                            <p><strong>ID:</strong> {station.id}</p>
+                            <p><strong>Latitud:</strong> {station.latitude}</p>
+                            <p><strong>Longitud:</strong> {station.longitude}</p>
+                          </div>
+                        </Popup>
+                      </Marker>
+                    ))}
+                </LayerGroup>
+              </LayersControl.Overlay>
+            </LayersControl>
+          </MapContainer>
+        </div>
+        <div
+          style={{
+            marginTop: "18px",
+            padding: "16px",
+            border: "1px solid #3f4654",
+            borderRadius: "10px",
+            textAlign: "left"
+          }}
+        >
+          <h3 style={{ marginTop: 0, marginBottom: "14px" }}>
+            Leyenda del mapa
+          </h3>
+
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: "20px",
+              alignItems: "center",
+              marginBottom: "16px"
+            }}
+          >
+            {/* Símbolo de estación existente */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px"
               }}
             >
-            <strong>Escala de colores</strong>
-            <span style={{ color: "#2c7bb6", frontWeight: "bold"}}>■</span> Bajo&nbsp;&nbsp;
-            <span style={{ color: "#a6d96a", frontWeight: "bold"}}>■</span> Medio-bajo&nbsp;&nbsp;
-            <span style={{ color: "#ffffbf", frontWeight: "bold"}}>■</span> Medio&nbsp;&nbsp;
-            <span style={{ color: "#fdae61", frontWeight: "bold"}}>■</span> Medio-alto&nbsp;&nbsp;
-            <span style={{ color: "#d7191c", frontWeight: "bold"}}>■</span> Alto
+              <span
+                style={{
+                  width: 0,
+                  height: 0,
+                  borderLeft: "7px solid transparent",
+                  borderRight: "7px solid transparent",
+                  borderBottom: "14px solid #1d4ed8"
+                }}
+              />
+
+              <span>Estación GNSS existente</span>
+            </div>
+
+            {/* Símbolo de estación nueva */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px"
+              }}
+            >
+              <span
+                style={{
+                  width: "14px",
+                  height: "14px",
+                  borderRadius: "50%",
+                  background: "#e63946",
+                  border: "2px solid #9f1239",
+                  display: "inline-block"
+                }}
+              />
+
+              <span>Estación propuesta</span>
+            </div>
+          </div>
+
+          <div>
+            <strong>Escala del raster:</strong>
+
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: "14px",
+                marginTop: "10px"
+              }}
+            >
+              {[
+                { label: "Bajo", color: "#2c7bb6" },
+                { label: "Medio-bajo", color: "#abd9e9" },
+                { label: "Medio", color: "#ffffbf" },
+                { label: "Medio-alto", color: "#fdae61" },
+                { label: "Alto", color: "#d7191c" }
+              ].map((item) => (
+                <div
+                  key={item.label}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px"
+                  }}
+                >
+                  <span
+                    style={{
+                      width: "16px",
+                      height: "16px",
+                      background: item.color,
+                      border: "1px solid #777",
+                      display: "inline-block"
+                    }}
+                  />
+
+                  <span>{item.label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
-        )}
-      </div>
+        </section>
+      )}
     </div>
   )
 }

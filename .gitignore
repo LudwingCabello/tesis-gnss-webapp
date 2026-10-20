@@ -13,3 +13,12 @@ frontend/dist/
 .DS_Store
 Thumbs.db
 .vscode/
+
+# Python: archivos temporales
+__pycache__/
+*.py[cod]
+
+# Variables de entorno locales
+.env
+.env.*
+!.env.example

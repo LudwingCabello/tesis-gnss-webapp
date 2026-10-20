@@ -1,10 +1,16 @@
-  frontend:
-    build: ./frontend
-    container_name: tesis-frontend
-    ports:
-      - "5173:5173"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-    depends_on:
-      - backend
+
+# Dependencias locales
+node_modules
+
+# Archivos compilados
+dist
+
+# Configuración de Git
+.git
+
+# Variables de entorno locales
+.env
+.env.*
+
+# Registros
+*.log

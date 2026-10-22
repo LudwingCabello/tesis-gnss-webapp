@@ -11,7 +11,7 @@ La aplicación permite cargar un archivo CSV de estaciones GNSS existentes y una
 - Las coordenadas propuestas y los valores objetivo de cada solución se generan de forma pseudoaleatoria para fines de prueba. No se calculan a partir de series de desplazamiento GNSS.
 - NSGA-II y MOSA aparecen como alternativas simuladas de configuración. Sus parámetros se muestran y validan, pero no ejecutan esos algoritmos ni determinan los valores objetivo o las coordenadas propuestas.
 - La clasificación por dominancia de Pareto **sí está implementada**: se calcula sobre las soluciones simuladas, considerando la maximización de ambos valores objetivo.
-- El GeoJSON es una capa temática de contexto cartográfico; sus atributos no alimentan el cálculo de los valores objetivo.
+- El archivo GeoJSON de prueba contiene polígonos derivados de un ráster y se utiliza para comprobar su carga y visualización en el mapa. Sus atributos no representan mediciones de variabilidad del desplazamiento GNSS ni intervienen en la generación de los valores objetivo o de las ubicaciones simuladas.
 - Las estaciones propuestas no deben interpretarse como ubicaciones óptimas ni como resultados de una validación geodésica.
 
 ## Tecnologías
@@ -38,7 +38,7 @@ git clone https://github.com/LudwingCabello/tesis-gnss-webapp.git
 cd tesis-gnss-webapp
 ```
 
-Si el repositorio todavía es privado, la clonación requiere una cuenta con autorización de acceso. Todos los comandos siguientes deben ejecutarse desde la carpeta raíz del proyecto, donde se encuentra `docker-compose.yml`.
+Todos los comandos siguientes deben ejecutarse desde la carpeta raíz del proyecto, donde se encuentra `docker-compose.yml`.
 
 ## Inicio mediante Docker Compose
 
